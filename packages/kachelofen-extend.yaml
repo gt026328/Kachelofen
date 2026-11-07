@@ -1,0 +1,184 @@
+# =====================================================================
+# Kachelofen Extend: Abkühlungsanalyse & Backup-Sensoren
+# Stand: 2026-11-05
+# =====================================================================
+
+# =====================================================================
+# TEMPLATE-SENSOREN (Abkühlungsanalyse)
+# =====================================================================
+template:
+  # ---------------------------------------------------------------
+  # ABKÜHLKOEFFIZIENT (Tagesvergleich)
+  # ---------------------------------------------------------------
+  - trigger:
+      - platform: time
+        at: "07:00:00"
+      - platform: homeassistant
+        event: start
+    sensor:
+      - name: "Kachelofen Abkühlkoeffizient"
+        unique_id: kachelofen_abkuehlkoeffizient
+        unit_of_measurement: "K/h/°C"
+        state_class: measurement
+        icon: mdi:thermometer-down
+        availability: >-
+          {{ has_value('sensor.raumtemperatur_vor_abbrand')
+             and has_value('sensor.raumtemperatur_morgen')
+             and has_value('sensor.aussentemperatur_letzte_nacht_ist') }}
+        state: >-
+          {% set t_vor = states('sensor.raumtemperatur_vor_abbrand') | float(20) %}
+          {% set t_morgen = states('sensor.raumtemperatur_morgen') | float(20) %}
+          {% set t_aussen = states('sensor.aussentemperatur_letzte_nacht_ist') | float(0) %}
+          {% set delta_raum = t_vor - t_morgen %}
+          {% set delta_aussen = t_vor - t_aussen %}
+          {% if delta_aussen > 0 %}
+            {{ (delta_raum / delta_aussen / 12) | round(3) }}  # 12h = 12 Stunden
+          {% else %}
+            {{ this.state | float(0) if this.state is not none else 0 }}
+          {% endif %}
+        attributes:
+          raumtemperatur_vor_abbrand: >
+            {% set t_vor = states('sensor.raumtemperatur_vor_abbrand') | float(20) %}
+            {{ t_vor | round(1) }} °C
+          raumtemperatur_morgen: >
+            {% set t_morgen = states('sensor.raumtemperatur_morgen') | float(20) %}
+            {{ t_morgen | round(1) }} °C
+          aussentemperatur_nacht: >
+            {% set t_aussen = states('sensor.aussentemperatur_letzte_nacht_ist') | float(0) %}
+            {{ t_aussen | round(1) }} °C
+          abkuehlung_raum: >
+            {% set t_vor = states('sensor.raumtemperatur_vor_abbrand') | float(20) %}
+            {% set t_morgen = states('sensor.raumtemperatur_morgen') | float(20) %}
+            {{ (t_vor - t_morgen) | round(1) }} K
+          abkuehlung_aussen: >
+            {% set t_vor = states('sensor.raumtemperatur_vor_abbrand') | float(20) %}
+            {% set t_aussen = states('sensor.aussentemperatur_letzte_nacht_ist') | float(0) %}
+            {{ (t_vor - t_aussen) | round(1) }} K
+          interpretation: >-
+            {% set koeff = this.state | float(0) %}
+            {% if koeff > 0.15 %} Starke Abkühlung (schlechte Dämmung oder Wind)
+            {% elif koeff > 0.1 %} Mittlere Abkühlung
+            {% elif koeff > 0.05 %} Gute Dämmung
+            {% else %} Sehr gute Dämmung
+            {% endif %}
+
+  # ---------------------------------------------------------------
+  # ABKÜHLKOEFFIZIENT VERGLEICH (Vortag vs. Heute)
+  # ---------------------------------------------------------------
+  - trigger:
+      - platform: time
+        at: "07:00:00"
+    sensor:
+      - name: "Kachelofen Abkühlkoeffizient Vergleich"
+        unique_id: kachelofen_abkuehlkoeffizient_vergleich
+        unit_of_measurement: "%"
+        state_class: measurement
+        icon: mdi:chart-line
+        state: >-
+          {% set heute = states('sensor.kachelofen_abkuehlkoeffizient') | float(0) %}
+          {% set gestern = this.attributes.get('vortag', heute) | float(0) %}
+          {% if gestern > 0 %}
+            {{ ((heute - gestern) / gestern * 100) | round(1) }}
+          {% else %}
+            0
+          {% endif %}
+        attributes:
+          heute: "{{ states('sensor.kachelofen_abkuehlkoeffizient') | float(0) | round(3) }}"
+          vortag: >-
+            {% if this.attributes.get('vortag') %}
+              {{ this.attributes.vortag | float(0) | round(3) }}
+            {% else %}
+              {{ states('sensor.kachelofen_abkuehlkoeffizient') | float(0) | round(3) }}
+            {% endif %}
+          interpretation: >-
+            {% set diff = this.state | float(0) %}
+            {% if diff > 10 %} Deutlich kälter als gestern ({{ diff | round(0) }}%)
+            {% elif diff > 5 %} Etwas kälter als gestern ({{ diff | round(0) }}%)
+            {% elif diff < -10 %} Deutlich wärmer als gestern ({{ diff | round(0) }}%)
+            {% elif diff < -5 %} Etwas wärmer als gestern ({{ diff | round(0) }}%)
+            {% else %} Ähnlich wie gestern ({{ diff | round(0) }}%)
+            {% endif %}
+          update_zeit: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+
+  # ---------------------------------------------------------------
+  # WOHNZIMMER TEMPERATUR MIT BACKUP
+  # ---------------------------------------------------------------
+  - trigger:
+      - platform: time_pattern
+        minutes: "/5"
+      - platform: state
+        entity_id:
+          - sensor.greenhouse_temperatur
+          - sensor.wohnzimmer_wohnzimmer_temperature
+    sensor:
+      - name: "Wohnzimmer Temperatur (mit Backup)"
+        unique_id: wohnzimmer_temp_mit_backup
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        state: >-
+          {% set main = 'sensor.greenhouse_temperatur' %}
+          {% set backup = 'sensor.wohnzimmer_wohnzimmer_temperature' %}
+          {% set stale_min = 5 %}
+          {% set main_state = states(main) %}
+          {% set backup_state = states(backup) %}
+          {% set main_ok = main_state not in ['unavailable', 'unknown', 'none']
+                          and (state_attr(main, 'last_updated') is not none
+                          and (now() - state_attr(main, 'last_updated')).total_seconds() < stale_min * 60) %}
+          {% set backup_ok = backup_state not in ['unavailable', 'unknown', 'none'] %}
+          {% if main_ok %}
+            {{ states(main) | float(20) | round(1) }}
+          {% elif backup_ok %}
+            {{ states(backup) | float(20) | round(1) }}
+          {% else %}
+            unavailable
+          {% endif %}
+        availability: >-
+          {{ states('sensor.greenhouse_temperatur') not in ['unavailable', 'unknown', 'none']
+             or states('sensor.wohnzimmer_wohnzimmer_temperature') not in ['unavailable', 'unknown', 'none'] }}
+        attributes:
+          aktueller_sensor: >-
+            {% set main = 'sensor.greenhouse_temperatur' %}
+            {% set backup = 'sensor.wohnzimmer_wohnzimmer_temperature' %}
+            {% set stale_min = 5 %}
+            {% set main_state = states(main) %}
+            {% set main_ok = main_state not in ['unavailable', 'unknown', 'none']
+                            and (state_attr(main, 'last_updated') is not none
+                            and (now() - state_attr(main, 'last_updated')).total_seconds() < stale_min * 60) %}
+            {% set backup_ok = states(backup) not in ['unavailable', 'unknown', 'none'] %}
+            {% if main_ok %}sensor.greenhouse_temperatur
+            {% elif backup_ok %}sensor.wohnzimmer_wohnzimmer_temperature
+            {% else %}unavailable{% endif %}
+          main_status: >-
+            {% set main = 'sensor.greenhouse_temperatur' %}
+            {% if states(main) in ['unavailable', 'unknown', 'none'] %}
+              unavailable
+            {% elif state_attr(main, 'last_updated') is none %}
+              veraltet (kein last_updated)
+            {% elif (now() - state_attr(main, 'last_updated')).total_seconds() > 5 * 60 %}
+              veraltet ({{ ((now() - state_attr(main, 'last_updated')).total_seconds() / 60) | round(0) }} Min.)
+            {% else %}
+              aktiv
+            {% endif %}
+          backup_status: >-
+            {% set backup = 'sensor.wohnzimmer_wohnzimmer_temperature' %}
+            {% if states(backup) in ['unavailable', 'unknown', 'none'] %}
+              unavailable
+            {% else %}
+              verfügbar
+            {% endif %}
+          letzter_wechsel: >-
+            {% set aktueller = this.attributes.get('aktueller_sensor', 'unbekannt') %}
+            {% set letzter = this.attributes.get('letzter_sensor', 'unbekannt') %}
+            {% if aktueller != letzter %}
+              {{ now().strftime('%Y-%m-%d %H:%M:%S') }}
+            {% else %}
+              {{ this.attributes.get('letzter_wechsel', 'noch nie') }}
+            {% endif %}
+          letzter_sensor: >-
+            {% set aktueller = this.attributes.get('aktueller_sensor', 'unbekannt') %}
+            {% if aktueller != 'unavailable' %}
+              {{ aktueller }}
+            {% else %}
+              {{ this.attributes.get('letzter_sensor', 'unbekannt') }}
+            {% endif %}
