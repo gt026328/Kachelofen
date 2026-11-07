@@ -1,0 +1,403 @@
+# =====================================================================
+# Kachelofen: Fensteranalyse (Ost) & Daemmqualitaet
+# Separates Home-Assistant-Paket - ausgelagert aus kachelofen.yaml
+# Enthaelt: Fenster-Sensoren (Ost), Daemmqualitaet inkl. Windkorrektur,
+# Haus-Windanfaelligkeit, Aufwaermrate, solarer Gewinn, Tagesfazit
+# =====================================================================
+
+template:
+  # =====================================================================
+  # 17. FENSTER-SENSOREN (Ost)
+  # =====================================================================
+  - sensor:
+      - name: "Fenster Ost Oberflaechentemperatur"
+        unique_id: fenster_ost_oberflaeche
+        unit_of_measurement: "°C"
+        state_class: measurement
+        availability: "{{ has_value('sensor.temp_esszimmer_temperatur') }}"
+        state: "{{ states('sensor.temp_esszimmer_temperatur') | float(0) | round(1) }}"
+        attributes:
+          sensor_quelle: "sensor.temp_esszimmer_temperatur"
+          position: "Ostfenster (Mitte, ~1,2m Hoehe)"
+
+      - name: "Fenster Ost ΔT zu Raumluft"
+        unique_id: fenster_ost_dt_zu_raumluft
+        unit_of_measurement: "°C"
+        state_class: measurement
+        availability: >
+          {{ has_value('sensor.temp_esszimmer_temperatur')
+             and has_value('sensor.greenhouse_temperatur') }}
+        state: >
+          {% set fenster = states('sensor.temp_esszimmer_temperatur') | float(0) %}
+          {% set raum = states('sensor.greenhouse_temperatur') | float(0) %}
+          {{ (raum - fenster) | round(1) }}
+
+      - name: "Fenster Ost Waermeverlust Index"
+        unique_id: fenster_ost_waermeverlust_index
+        unit_of_measurement: "Index (1-5)"
+        state_class: measurement
+        availability: >
+          {{ has_value('sensor.temp_esszimmer_temperatur')
+             and has_value('sensor.greenhouse_temperatur') }}
+        state: >
+          {% set diff = (states('sensor.greenhouse_temperatur') | float(0)) - (states('sensor.temp_esszimmer_temperatur') | float(0)) %}
+          {% if diff < 2 %} 5
+          {% elif diff < 4 %} 4
+          {% elif diff < 6 %} 3
+          {% elif diff < 8 %} 2
+          {% else %} 1
+          {% endif %}
+        attributes:
+          bewertung: >
+            {% set idx = states('sensor.fenster_ost_waermeverlust_index') | int(0) %}
+            {% if idx == 5 %} sehr gut
+            {% elif idx == 4 %} gut
+            {% elif idx == 3 %} durchschnittlich
+            {% elif idx == 2 %} verbesserungsbeduerftig
+            {% else %} schlecht
+            {% endif %}
+
+      - name: "Fenster Ost Waermeverlust windkorrigiert"
+        unique_id: fenster_ost_warmeverlust_windkorrigiert
+        unit_of_measurement: "Index (1-5)"
+        state_class: measurement
+        availability: >
+          {{ has_value('sensor.gw3000a_wind_speed')
+             and has_value('sensor.temp_esszimmer_temperatur')
+             and has_value('sensor.greenhouse_temperatur') }}
+        state: >
+          {% set tin = states('sensor.greenhouse_temperatur') | float(0) %}
+          {% set t_fenster = states('sensor.temp_esszimmer_temperatur') | float(0) %}
+          {% set wind = states('sensor.gw3000a_wind_speed') | float(0) %}
+          {% set gust = states('sensor.gw3000a_wind_gust') | float(wind) %}
+          {% set wind_effektiv = (wind + gust) / 2 %}
+          {% set richtung = states('sensor.gw3000a_wind_direction_10m_avg') | float(states('sensor.gw3000a_wind_direction') | float(90)) %}
+          {% set winkel = [richtung - 90, 270 - richtung] | min %}
+          {% if winkel < 0 %}{% set winkel = winkel * -1 %}{% endif %}
+          {% set faktor = winkel | cos %}
+          {% if faktor < 0 %}{% set faktor = 0 %}{% endif %}
+          {% set k = states('input_number.kachelofen_wind_kalibrierung') | float(0.05) %}
+          {% set diff_fenster = tin - t_fenster %}
+          {% set windanteil = k * wind_effektiv * faktor %}
+          {% set verlust_korrigiert = diff_fenster + windanteil * 10 %}
+          {% if verlust_korrigiert < 2 %} 5
+          {% elif verlust_korrigiert < 4 %} 4
+          {% elif verlust_korrigiert < 6 %} 3
+          {% elif verlust_korrigiert < 8 %} 2
+          {% else %} 1
+          {% endif %}
+
+      - name: "Fenster Ost Tagesgang"
+        unique_id: fenster_ost_tagesgang
+        state: >
+          {% if not has_value('sensor.temp_esszimmer_temperatur') or not has_value('sensor.greenhouse_temperatur') %}
+            Sensoren nicht verfügbar
+          {% else %}
+            {% set fenster = states('sensor.temp_esszimmer_temperatur') | float(0) %}
+            {% set raum = states('sensor.greenhouse_temperatur') | float(0) %}
+            {% set hour = now().hour %}
+            {% if hour >= 6 and hour < 12 %}
+              {% if fenster > raum %} Aufheizung durch Sonne
+              {% elif fenster > raum - 2 %} Neutral
+              {% else %} Abkühlung trotz Sonne
+              {% endif %}
+            {% elif hour >= 12 and hour < 18 %}
+              {% if fenster < raum - 4 %} Starke Abkühlung
+              {% elif fenster < raum %} Leichte Abkühlung
+              {% else %} Neutral
+              {% endif %}
+            {% else %}
+              {% if fenster < raum - 6 %} Hoher Wärmeverlust
+              {% elif fenster < raum - 3 %} Mäßiger Wärmeverlust
+              {% else %} Gute Dämmung
+              {% endif %}
+            {% endif %}
+          {% endif %}
+
+      - name: "Fenster Ost U-Wert Schaetzung"
+        unique_id: fenster_ost_u_wert_schaetzung
+        unit_of_measurement: "W/(m²K)"
+        state_class: measurement
+        icon: mdi:gauge
+        availability: >
+          {{ has_value('sensor.temp_esszimmer_temperatur')
+             and has_value('sensor.greenhouse_temperatur')
+             and has_value('sensor.gw3000a_outdoor_temperature')
+             and (states('sensor.greenhouse_temperatur') | float(20)
+                  - states('sensor.gw3000a_outdoor_temperature') | float(0)) >= 8 }}
+        state: >
+          {% set tin = states('sensor.greenhouse_temperatur') | float(20) %}
+          {% set tg = states('sensor.temp_esszimmer_temperatur') | float(tin) %}
+          {% set tout = states('sensor.gw3000a_outdoor_temperature') | float(0) %}
+          {% set dt_total = tin - tout %}
+          {% set dt_glas = tin - tg %}
+          {% set alpha_i = 7.7 %}
+          {{ (alpha_i * dt_glas / dt_total) | round(2) }}
+        attributes:
+          flaeche_qm: 11
+          verglasung: "3-fach"
+          glass_diff_temp: "{{ (states('sensor.greenhouse_temperatur') | float(20) - states('sensor.temp_esszimmer_temperatur') | float(20)) | round(2) }} K"
+
+      - name: "Fenster Ost Verlustleistung"
+        unique_id: fenster_ost_verlustleistung
+        unit_of_measurement: "W"
+        state_class: measurement
+        icon: mdi:radiator-off
+        availability: >
+          {{ has_value('sensor.temp_esszimmer_temperatur')
+             and has_value('sensor.greenhouse_temperatur')
+             and has_value('sensor.gw3000a_outdoor_temperature') }}
+        state: >
+          {% set tin = states('sensor.greenhouse_temperatur') | float(20) %}
+          {% set tg = states('sensor.temp_esszimmer_temperatur') | float(tin) %}
+          {% set q = 7.7 * (tin - tg) %}
+          {{ (q * 11) | round(0) }}
+        attributes:
+          flaeche_qm: 11
+          waermestrom_w_qm: "{{ (7.7 * (states('sensor.greenhouse_temperatur') | float(20) - states('sensor.temp_esszimmer_temperatur') | float(20))) | round(1) }} W/m²"
+
+  # =====================================================================
+  # 18. DÄMMQUALITÄT
+  # =====================================================================
+  - sensor:
+      - name: "Daemmqualitaet Wohnzimmer"
+        unique_id: dammqualitat_wohnzimmer
+        state: >
+          {% set tin = states('sensor.greenhouse_temperatur') | float(99) %}
+          {% set tout = states('sensor.gw3000a_outdoor_temperature') | float(-99) %}
+          {% set sommer = now().month in [3,4,5,6,7,8,9,10] %}
+          {% set abend_start = 20 if sommer else 18 %}
+          {% set abend = now().hour >= abend_start or now().hour < 7 %}
+          {% set diff = tin - tout %}
+          {% if not has_value('sensor.greenhouse_temperatur') or not has_value('sensor.gw3000a_outdoor_temperature') or not has_value('sensor.wohnzimmer_abkuehlrate') %}
+            Sensoren nicht verfügbar
+          {% elif not abend %}
+            Außerhalb der Messzeit
+          {% elif diff < 5 %}
+            Temperaturdifferenz zu gering (benötigt >= 5 °C)
+          {% else %}
+            {% set rate = states('sensor.wohnzimmer_abkuehlrate') | float(0) %}
+            {% set loss = (rate | abs) / diff * 100 %}
+            {% if loss < 0.5 %} sehr gut
+            {% elif loss < 1.0 %} gut
+            {% elif loss < 2.0 %} durchschnittlich
+            {% elif loss < 3.5 %} verbesserungsbeduerftig
+            {% else %} schlecht
+            {% endif %}
+          {% endif %}
+        attributes:
+          innen_aussen_differenz: >
+            {% if has_value('sensor.greenhouse_temperatur') and has_value('sensor.gw3000a_outdoor_temperature') %}
+              {{ (states('sensor.greenhouse_temperatur') | float(0) - states('sensor.gw3000a_outdoor_temperature') | float(0)) | round(1) }} °C
+            {% else %}
+              Sensor nicht verfügbar
+            {% endif %}
+          abkuehlrate: >
+            {% if has_value('sensor.wohnzimmer_abkuehlrate') %}
+              {{ states('sensor.wohnzimmer_abkuehlrate') | float(0) | round(2) }} °C/h
+            {% else %}
+              Sensor nicht verfügbar
+            {% endif %}
+
+      - name: "Daemmqualitaet Wohnzimmer Index"
+        unique_id: dammqualitat_wohnzimmer_index
+        unit_of_measurement: "Index"
+        state_class: measurement
+        availability: >
+          {% set tin = states('sensor.greenhouse_temperatur') | float(99) %}
+          {% set tout = states('sensor.gw3000a_outdoor_temperature') | float(-99) %}
+          {% set sommer = now().month in [3,4,5,6,7,8,9,10] %}
+          {% set abend_start = 20 if sommer else 18 %}
+          {% set abend = now().hour >= abend_start or now().hour < 7 %}
+          {{ abend and (tin - tout) > 0
+             and has_value('sensor.wohnzimmer_abkuehlrate')
+             and has_value('sensor.gw3000a_wind_speed') }}
+        state: >
+          {% set tin = states('sensor.greenhouse_temperatur') | float(99) %}
+          {% set tout = states('sensor.gw3000a_outdoor_temperature') | float(-99) %}
+          {% set diff = tin - tout %}
+          {% set rate = states('sensor.wohnzimmer_abkuehlrate') | float(0) %}
+          {% set loss = (rate | abs) / diff * 100 %}
+          {% if loss < 0.5 %} 5
+          {% elif loss < 1.0 %} 4
+          {% elif loss < 2.0 %} 3
+          {% elif loss < 3.5 %} 2
+          {% else %} 1
+          {% endif %}
+
+      - name: "Daemmqualitaet Wohnzimmer inkl. Fenster"
+        unique_id: dammqualitat_wohnzimmer_fenster
+        state: >
+          {% set tin = states('sensor.greenhouse_temperatur') | float(99) %}
+          {% set tout = states('sensor.gw3000a_outdoor_temperature') | float(-99) %}
+          {% set sommer = now().month in [3,4,5,6,7,8,9,10] %}
+          {% set abend_start = 20 if sommer else 18 %}
+          {% set abend = now().hour >= abend_start or now().hour < 7 %}
+          {% set diff = tin - tout %}
+          {% if not has_value('sensor.greenhouse_temperatur') or not has_value('sensor.gw3000a_outdoor_temperature') or not has_value('sensor.temp_esszimmer_temperatur') or not has_value('sensor.wohnzimmer_abkuehlrate') %}
+            Sensoren nicht verfügbar
+          {% elif not abend %}
+            Außerhalb der Messzeit
+          {% elif diff < 5 %}
+            Temperaturdifferenz zu gering (benötigt >= 5 °C)
+          {% else %}
+            {% set rate = states('sensor.wohnzimmer_abkuehlrate') | float(0) %}
+            {% set loss_raum = (rate | abs) / diff * 100 %}
+            {% set fenster_diff = tin - states('sensor.temp_esszimmer_temperatur') | float(tin) %}
+            {% set loss_fenster = (fenster_diff / diff * 100) if diff > 0 else 0 %}
+            {% set loss_ges = (loss_raum * 0.7) + (loss_fenster * 0.3) %}
+            {% if loss_ges < 0.5 %} sehr gut
+            {% elif loss_ges < 1.0 %} gut
+            {% elif loss_ges < 2.0 %} durchschnittlich
+            {% elif loss_ges < 3.5 %} verbesserungsbeduerftig
+            {% else %} schlecht
+            {% endif %}
+          {% endif %}
+        attributes:
+          fenster_verlustanteil: >
+            {% if has_value('sensor.greenhouse_temperatur') and has_value('sensor.gw3000a_outdoor_temperature') and has_value('sensor.temp_esszimmer_temperatur') and has_value('sensor.wohnzimmer_abkuehlrate') %}
+              {% set tin = states('sensor.greenhouse_temperatur') | float(0) %}
+              {% set tout = states('sensor.gw3000a_outdoor_temperature') | float(0) %}
+              {% set diff = tin - tout %}
+              {% set rate = states('sensor.wohnzimmer_abkuehlrate') | float(0) %}
+              {% set loss_raum = (rate | abs) / diff * 100 if diff > 0 else 0 %}
+              {% set t_fenster = states('sensor.temp_esszimmer_temperatur') | float(tin) %}
+              {% set fenster_diff = tin - t_fenster %}
+              {% set loss_fenster = (fenster_diff / diff * 100) if diff > 0 else 0 %}
+              {{ (loss_fenster * 100 / (loss_raum + loss_fenster)) | round(0) if (loss_raum + loss_fenster) > 0 else 0 }}%
+            {% else %}
+              Sensor nicht verfügbar
+            {% endif %}
+
+      - name: "Daemmqualitaet Wohnzimmer windkorrigiert"
+        unique_id: dammqualitat_wohnzimmer_wind
+        unit_of_measurement: "Index"
+        state_class: measurement
+        availability: >
+          {% set tin = states('sensor.greenhouse_temperatur') | float(99) %}
+          {% set tout = states('sensor.gw3000a_outdoor_temperature') | float(-99) %}
+          {% set sommer = now().month in [3,4,5,6,7,8,9,10] %}
+          {% set abend_start = 20 if sommer else 18 %}
+          {% set abend = now().hour >= abend_start or now().hour < 7 %}
+          {{ abend and (tin - tout) > 0
+             and has_value('sensor.wohnzimmer_abkuehlrate')
+             and has_value('sensor.gw3000a_wind_speed') }}
+        state: >
+          {% set tin = states('sensor.greenhouse_temperatur') | float(99) %}
+          {% set tout = states('sensor.gw3000a_outdoor_temperature') | float(-99) %}
+          {% set diff = tin - tout %}
+          {% if diff <= 0 %}
+            3
+          {% else %}
+            {% set rate = states('sensor.wohnzimmer_abkuehlrate') | float(0) %}
+            {% set wind = states('sensor.gw3000a_wind_speed') | float(0) %}
+            {% set gust = states('sensor.gw3000a_wind_gust') | float(wind) %}
+            {% set wind_effektiv = (wind + gust) / 2 %}
+            {% set richtung = states('sensor.gw3000a_wind_direction_10m_avg') | float(states('sensor.gw3000a_wind_direction') | float(90)) %}
+            {% set winkel = [richtung - 90, 270 - richtung] | min %}
+            {% if winkel < 0 %}{% set winkel = winkel * -1 %}{% endif %}
+            {% set faktor = winkel | cos %}
+            {% if faktor < 0 %}{% set faktor = 0 %}{% endif %}
+            {% set k = states('input_number.kachelofen_wind_kalibrierung') | float(0.05) %}
+            {% set verlust = (rate | abs) / diff * 100 %}
+            {% set windanteil = k * wind_effektiv * faktor %}
+            {% set verlust_korrigiert = [verlust - windanteil, 0] | max %}
+            {% if verlust_korrigiert < 0.5 %} 5
+            {% elif verlust_korrigiert < 1.0 %} 4
+            {% elif verlust_korrigiert < 2.0 %} 3
+            {% elif verlust_korrigiert < 3.5 %} 2
+            {% else %} 1
+            {% endif %}
+          {% endif %}
+
+      - name: "Haus Windanfälligkeit"
+        unique_id: haus_windanfaelligkeit
+        unit_of_measurement: "%"
+        state_class: measurement
+        availability: >
+          {{ has_value('sensor.greenhouse_temperatur')
+             and has_value('sensor.gw3000a_outdoor_temperature')
+             and has_value('sensor.wohnzimmer_abkuehlrate')
+             and has_value('sensor.gw3000a_wind_speed')
+             and (states('sensor.greenhouse_temperatur') | float(0) - states('sensor.gw3000a_outdoor_temperature') | float(0)) >= 5 }}
+        state: >-
+          {% set tin = states('sensor.greenhouse_temperatur') | float(99) %}
+          {% set tout = states('sensor.gw3000a_outdoor_temperature') | float(-99) %}
+          {% set diff = tin - tout %}
+          {% set rate = states('sensor.wohnzimmer_abkuehlrate') | float(0) %}
+          {% set wind = states('sensor.gw3000a_wind_speed') | float(0) %}
+          {% set gust = states('sensor.gw3000a_wind_gust') | float(wind) %}
+          {% set wind_effektiv = (wind + gust) / 2 %}
+          {% set richtung = states('sensor.gw3000a_wind_direction_10m_avg') | float(states('sensor.gw3000a_wind_direction') | float(90)) %}
+          {% set winkel = [richtung - 90, 270 - richtung] | min %}
+          {% if winkel < 0 %}{% set winkel = winkel * -1 %}{% endif %}
+          {% set faktor = winkel | cos %}
+          {% if faktor < 0 %}{% set faktor = 0 %}{% endif %}
+          {% set k = states('input_number.kachelofen_wind_kalibrierung') | float(0.05) %}
+          {% set verlust = (rate | abs) / diff * 100 %}
+          {% set windanteil = k * wind_effektiv * faktor %}
+          {% if verlust > 0 %}
+            {{ ([windanteil / verlust * 100, 100] | min) | round(0) }}
+          {% else %}
+            0
+          {% endif %}
+
+      - name: "Aufwaermrate Wohnzimmer Tag"
+        unique_id: dammqualitat_aufwaermrate_tag
+        unit_of_measurement: "°C/h"
+        state_class: measurement
+        availability: >
+          {% set sommer = now().month in [3,4,5,6,7,8,9,10] %}
+          {% set tag_ende = 18 if sommer else 16 %}
+          {{ (now().hour >= 7 and now().hour < tag_ende)
+             and has_value('sensor.wohnzimmer_abkuehlrate') }}
+        state: >
+          {{ states('sensor.wohnzimmer_abkuehlrate') | float(0) | round(2) }}
+
+      - name: "Solarer Gewinn Wohnzimmer"
+        unique_id: dammqualitat_solarer_gewinn
+        state: >
+          {% set rate = states('sensor.wohnzimmer_abkuehlrate') | float(0) %}
+          {% set sommer = now().month in [3,4,5,6,7,8,9,10] %}
+          {% set tag_ende = 18 if sommer else 16 %}
+          {% if not has_value('sensor.wohnzimmer_abkuehlrate') %}
+            Sensor nicht verfügbar
+          {% elif now().hour >= 7 and now().hour < tag_ende %}
+            {% if rate > 0.5 %} starke Aufheizung
+            {% elif rate > 0.1 %} leichte Aufheizung
+            {% elif rate > -0.1 %} neutral
+            {% else %} abkuehlend
+            {% endif %}
+          {% else %}
+            Außerhalb der Messzeit
+          {% endif %}
+        attributes:
+          aufwaermrate: >
+            {% if has_value('sensor.wohnzimmer_abkuehlrate') %}
+              {{ states('sensor.wohnzimmer_abkuehlrate') | float(0) | round(2) }} °C/h
+            {% else %}
+              Sensor nicht verfügbar
+            {% endif %}
+
+      - name: "Daemmqualitaet Tagesfazit"
+        unique_id: dammqualitat_fazit
+        state: >
+          {% set qualitaet = states('sensor.daemmqualitaet_wohnzimmer') %}
+          {% set rate = states('sensor.wohnzimmer_abkuehlrate') | float(0) %}
+          {% set tout = states('sensor.gw3000a_outdoor_temperature') | float(0) %}
+          {% set sommer = now().month in [3,4,5,6,7,8,9,10] %}
+          {% if not has_value('sensor.daemmqualitaet_wohnzimmer') %}
+            Sensor nicht verfügbar
+          {% elif qualitaet in ['sehr gut', 'gut', 'durchschnittlich', 'verbesserungsbeduerftig', 'schlecht'] %}
+            {{ qualitaet | capitalize }} - letzte Abkuehlrate {{ rate | round(1) }} °C/h bei {{ tout | round(1) }} °C außen
+          {% else %}
+            Außerhalb der Messzeit oder Temperaturdifferenz zu gering
+          {% endif %}
+        icon: >
+          {% set s = states('sensor.daemmqualitaet_wohnzimmer') %}
+          {% if s == 'sehr gut' %} mdi:shield-check
+          {% elif s == 'gut' %} mdi:check-circle
+          {% elif s == 'durchschnittlich' %} mdi:circle-half-full
+          {% else %} mdi:alert-circle
+          {% endif %}
+
