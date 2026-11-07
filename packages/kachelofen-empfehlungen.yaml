@@ -1,0 +1,432 @@
+# =====================================================================
+# Kachelofen: Prognose & Holz-Empfehlungen
+# Separates Home-Assistant-Paket - ausgelagert aus kachelofen.yaml
+# Enthaelt: Prognose Raumtemp 07:00, Morgenempfehlung, Wetter-Vorhersage
+# Nacht/Tag, Holz-Empfehlungen (kalibriert/gelernt/lernend/Basis), 19:00-Empfehlung
+# =====================================================================
+
+template:
+  # =====================================================================
+  # 11. PROGNOSE RAUMTEMPERATUR MORGEN 07:00
+  # =====================================================================
+  - trigger:
+      - platform: state
+        entity_id: binary_sensor.kachelofen_zahler_ofen_brennt
+        from: "off"
+        to: "on"
+      - platform: time_pattern
+        minutes: "/15"
+    sensor:
+      - name: "Prognose Raumtemperatur Morgen 07"
+        unique_id: prognose_raumtemp_morgen
+        unit_of_measurement: "°C"
+        state_class: measurement
+        icon: mdi:weather-sunset
+        availability: >-
+          {{ has_value('sensor.greenhouse_temperatur')
+             and has_value('sensor.vorhersage_nacht_mittel')
+             and has_value('binary_sensor.kachelofen_zahler_ofen_brennt') }}
+        state: >
+          {% if trigger.entity_id is defined and 'ofen_brennt' in trigger.entity_id %}
+            {% set t_start = state_attr('sensor.wohnzimmer_temp_puffer', 'temp_vor_90min') | float(states('sensor.greenhouse_temperatur') | float(20)) %}
+          {% else %}
+            {% set t_start = (this.attributes.t_start | default(states('sensor.raumtemperatur_vor_abbrand') | float(20))) | float(20) %}
+          {% endif %}
+          {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0) %}
+          {% set lw = 0.85 if lernwert <= 0 else [lernwert, 0.15] | max %}
+          {% set lw = [lw, 1.2] | min %}
+          {% set C = 4 * lw %}
+          {% set G = lw * 4 / 12 %}
+          {% set wind = states('sensor.gw3000a_wind_speed') | float(0) %}
+          {% set G = G * (1 + wind / 100) %}
+          {% set t_out = states('sensor.vorhersage_nacht_mittel') | float(states('sensor.gw3000a_outdoor_temperature') | float(5)) + states('sensor.vorhersagefehler_letzte_nacht') | float(0) %}
+          {% set menge = states('input_number.kamin_holzmenge') | float(0) %}
+          {% set art = states('input_select.kamin_holzart') | default('Buche', true) %}
+          {% set hw = {'Buche': 4.0, 'Eiche': 4.0, 'Esche': 4.0, 'Birke': 4.1, 'Fichte': 4.3, 'Kiefer': 4.3}.get(art, 4.0) %}
+          {% set e_holz = menge * hw %}
+          {% set e_speicher = states('sensor.kachelofen_speicherenergie') | float(0) %}
+          {% set e_total = e_holz + e_speicher %}
+          {% set h = ((7 - now().hour - now().minute / 60) % 24) %}
+          {% set h = [h, 1] | max %}
+          {% set P = e_total / h %}
+          {% set t_eq = t_out + P / G %}
+          {% set tau = C / G %}
+          {% set t_07 = t_eq + (t_start - t_eq) * 2.71828 ** (-(h / tau)) %}
+          {{ t_07 | round(1) }}
+        attributes:
+          t_start: >
+            {% if trigger.entity_id is defined and 'ofen_brennt' in trigger.entity_id %}
+              {{ state_attr('sensor.wohnzimmer_temp_puffer', 'temp_vor_90min') | float(states('sensor.greenhouse_temperatur') | float(20)) | round(1) }}
+            {% else %}
+              {{ this.attributes.t_start | float(states('sensor.raumtemperatur_vor_abbrand') | float(20)) }}
+            {% endif %}
+          energie_holz: "{{ states('input_number.kamin_holzmenge') | float(0) * 4 }} kWh"
+          energie_speicher: "{{ states('sensor.kachelofen_speicherenergie') }} kWh"
+          nacht_aussentemperatur: "{{ (states('sensor.vorhersage_nacht_mittel') | float(0) + states('sensor.vorhersagefehler_letzte_nacht') | float(0)) | round(1) }} °C"
+          stunden_bis_7: "{{ [((7 - now().hour - now().minute / 60) % 24), 1] | max | round(1) }} h"
+
+  # =====================================================================
+  # 12. MORGENEMPFEHLUNG (ANGEPASST: Grundbedarf=8kg, Lernwert=0.85)
+  # =====================================================================
+  - trigger:
+      - platform: time_pattern
+        minutes: "/30"
+    sensor:
+      - name: "Kachelofen Morgenempfehlung Holzmenge"
+        unique_id: kachelofen_morgen_holzmenge
+        unit_of_measurement: "kg"
+        icon: mdi:weather-sunset-up
+        availability: >
+          {{ now().hour >= 5 and now().hour < 12
+             and states('binary_sensor.kachelofen_zahler_ofen_brennt') == 'off' }}
+        state: >
+          {% set ziel = states('input_number.kachelofen_zieltemperatur') | float(22) %}
+          {% set t_ist = states('sensor.greenhouse_temperatur') | float(21) %}
+          {% set tagesmittel = states('sensor.vorhersage_tag_mittel') | float(t_ist) %}
+          {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0) %}
+          {% set lw = 0.35 if lernwert <= 0 else [lernwert, 0.15] | max %}
+          {% set lw = [lw, 1.2] | min %}
+          {% set grundbedarf = 4 %}
+          {% set nacht_bedarf = lw * [ziel - tagesmittel, 0] | max %}
+          {% set aufheizbedarf = [ziel - t_ist, 0] | max * 0.5 %}
+          {% set speicher_kwh = states('sensor.kachelofen_speicherenergie') | float(0) %}
+          {% set rabatt_kg = [speicher_kwh / 4, 6] | min %}
+          {% set kg = grundbedarf + nacht_bedarf + aufheizbedarf - rabatt_kg %}
+          {{ [((kg / 0.5) | round(0) * 0.5), 0] | max }}
+        attributes:
+          empfehlung: >
+            {% set this_state = this.state | float(0) %}
+            {% if this_state > 0 %}ja{% else %}nein - keine Anzündung nötig{% endif %}
+          begruendung: >
+            {% set t_ist = states('sensor.greenhouse_temperatur') | float(22) %}  # 👈 NEU DEFINIERT!
+            {% set tagesmittel = states('sensor.vorhersage_tag_mittel') | float(t_ist) %}  # 👈 NEU DEFINIERT!
+            {% set stunden_seit = states('sensor.ofen_stunden_seit_abbrand') | float(24) %}
+            {% if this.state | float(0) > 0 %}
+              {% if t_ist < 21 %}Haus unter 21°C ({{ t_ist | round(1) }} °C){% endif %}
+              {% if tagesmittel <= 2 %} - kalter Tag ({{ tagesmittel | round(1) }} °C Tagesmittel){% endif %}
+              {% if stunden_seit < 8 %} - aber Restwärme: erst {{ stunden_seit | round(1) }} h seit letztem Abbrand, Menge reduziert{% endif %}
+            {% else %}
+              Kein Bedarf: {{ t_ist | round(1) }} °C und Tagesmittel {{ tagesmittel | round(1) }} °C
+            {% endif %}
+          tagesmittel_prognose: "{{ states('sensor.vorhersage_tag_mittel') | float(0) | round(1) }} °C"
+          aufheizbedarf: "{{ (states('input_number.kachelofen_zieltemperatur') | float(21) - states('sensor.greenhouse_temperatur') | float(22)) | round(1) }} K"
+          speicherrest: "{{ states('sensor.kachelofen_speicherenergie') | float(0) | round(1) }} kWh"
+          rabatt_durch_speicher: "{{ ([states('sensor.kachelofen_speicherenergie') | float(0) / 4, 6] | min) | round(1) }} kg"
+  # =====================================================================
+  # 13. VORHERSAGE (NACHT & TAG)
+  # =====================================================================
+  - trigger:
+      - platform: homeassistant
+        event: start
+      - platform: time_pattern
+        hours: "/1"
+    action:
+      - action: weather.get_forecasts
+        target:
+          entity_id: weather.attenkam
+        data:
+          type: hourly
+        response_variable: fc
+    sensor:
+      - name: "Vorhersage Nacht Mittel"
+        unique_id: vorhersage_nacht_mittel
+        unit_of_measurement: "°C"
+        state_class: measurement
+        icon: mdi:weather-night
+        availability: >
+          {% set fc = fc['weather.attenkam'].forecast %}
+          {% set ns = namespace(werte=[]) %}
+          {% for eintrag in fc %}
+            {% set ts = eintrag.datetime | as_datetime | as_local %}
+            {% if ts.hour >= 19 or ts.hour < 7 %}
+              {% set ns.werte = ns.werte + [eintrag.temperature | float] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.werte | length > 0 }}
+        state: >
+          {% set fc = fc['weather.attenkam'].forecast %}
+          {% set ns = namespace(werte=[]) %}
+          {% for eintrag in fc %}
+            {% set ts = eintrag.datetime | as_datetime | as_local %}
+            {% if ts.hour >= 19 or ts.hour < 7 %}
+              {% set ns.werte = ns.werte + [eintrag.temperature | float] %}
+            {% endif %}
+          {% endfor %}
+          {{ (ns.werte | sum / ns.werte | length) | round(1) }}
+        attributes:
+          nacht_tiefstwert: >
+            {% set fc = fc['weather.attenkam'].forecast %}
+            {% set ns = namespace(werte=[]) %}
+            {% for eintrag in fc %}
+              {% set ts = eintrag.datetime | as_datetime | as_local %}
+              {% if ts.hour >= 19 or ts.hour < 7 %}
+                {% set ns.werte = ns.werte + [eintrag.temperature | float] %}
+              {% endif %}
+            {% endfor %}
+            {% if ns.werte | length > 0 %}
+              {{ ns.werte | min | round(1) }} °C
+            {% endif %}
+          zuletzt_aktualisiert: "{{ now().strftime('%H:%M') }} Uhr"
+
+      - name: "Vorhersage Tag Mittel"
+        unique_id: vorhersage_tag_mittel
+        unit_of_measurement: "°C"
+        state_class: measurement
+        icon: mdi:weather-sunny
+        state: >
+          {% set fc = fc['weather.attenkam'].forecast %}
+          {% set ns = namespace(werte=[]) %}
+          {% for eintrag in fc %}
+            {% set ts = eintrag.datetime | as_datetime | as_local %}
+            {% if ts.hour >= 7 and ts.hour < 19 %}
+              {% set ns.werte = ns.werte + [eintrag.temperature | float] %}
+            {% endif %}
+          {% endfor %}
+          {% if ns.werte | length > 0 %}
+            {{ (ns.werte | sum / ns.werte | length) | round(1) }}
+          {% else %}
+            {{ states('sensor.gw3000a_outdoor_temperature') | float(0) | round(1) }}
+          {% endif %}
+
+  # =====================================================================
+  # 14. HOLZMENGEN-EMPFEHLUNGEN (Alle korrigiert)
+  # =====================================================================
+  - sensor:
+      # --- Kalibrierte Empfehlung ---
+      - name: "Kachelofen Holzmenge Empfehlung Kalibriert"
+        unique_id: kachelofen_holz_empfehlung_kalibriert
+        unit_of_measurement: "kg"
+        icon: mdi:fire-circle
+        availability: >
+          {{ has_value('sensor.vorhersage_nacht_mittel') }}
+        state: >
+          {% set ziel = states('input_number.kachelofen_zieltemperatur') | float(22) %}
+          {% set tin = [states('sensor.greenhouse_temperatur') | float(22), ziel] | min %}
+          {% set nacht_prognose = states('sensor.vorhersage_nacht_mittel') | float(nan) %}
+          {% if nacht_prognose != nacht_prognose %}
+            {{ 'keine Vorhersage' }}
+          {% else %}
+            {% set fehler = states('sensor.vorhersagefehler_letzte_nacht') | float(0) %}
+            {% set nacht_effektiv = nacht_prognose + fehler %}
+            {% set diff = [tin - nacht_effektiv, 0] | max %}
+            {% set kg_buche = 4 + 0.85 * diff + states('input_number.kachelofen_empfehlung_korrektur') | float(0) %}
+            {% set art = states('input_select.kamin_holzart') | default('Buche', true) %}
+            {% set hw = {'Buche': 4.0, 'Eiche': 4.0, 'Esche': 4.0, 'Birke': 4.1, 'Fichte': 4.3, 'Kiefer': 4.3}.get(art, 4.0) %}
+            {% set kg_art = kg_buche * 4.0 / hw %}
+            {{ [(kg_art / 0.5) | round(0) * 0.5, 0] | max }}
+          {% endif %}
+        attributes:
+          nacht_prognose: "{{ states('sensor.vorhersage_nacht_mittel') }} °C"
+          nacht_korrigiert: >
+            {{ (states('sensor.vorhersage_nacht_mittel') | float(0)
+                + states('sensor.vorhersagefehler_letzte_nacht') | float(0)) | round(1) }} °C
+          feinkorrektur: "{{ states('input_number.kachelofen_empfehlung_korrektur') }} kg"
+
+  - trigger:
+      - platform: time_pattern
+        minutes: "/30"
+      - platform: state
+        entity_id:
+          - sensor.vorhersage_nacht_mittel
+          - sensor.vorhersagefehler_letzte_nacht
+          - sensor.kachelofen_lernwert_kg_pro_grad
+          - sensor.kachelofen_speicherenergie
+          - input_number.kachelofen_zieltemperatur
+          - input_number.kachelofen_empfehlung_korrektur
+          - input_select.kamin_holzart
+    sensor:
+      - name: "Kachelofen Holzmenge Empfehlung Gelernt"
+        unique_id: kachelofen_holzmenge_empfehlung_gelernt
+        unit_of_measurement: "kg"
+        icon: mdi:fire-circle
+        state: >-
+          {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.85) %}
+          {% set lw = [lernwert, 0.5] | max %}
+          {% set lw = [lw, 1.5] | min %}
+
+          {% set ziel = states('input_number.kachelofen_zieltemperatur') | float(22.5) %}
+          {% set tin = [states('sensor.greenhouse_temperatur') | float(21), ziel] | min %}
+
+          {% set nacht_prognose = states('sensor.vorhersage_nacht_mittel') | float(10) %}
+          {% set fehler = states('sensor.vorhersagefehler_letzte_nacht') | float(0) %}
+          {% set nacht_effektiv = nacht_prognose + fehler %}
+
+          {% set diff = [tin - nacht_effektiv, 0] | max %}
+
+          {% set grundbedarf = 8 %}
+          {% set kg_buche = grundbedarf + lw * diff + (states('input_number.kachelofen_empfehlung_korrektur') | float(0)) %}
+
+          {% set speicher_kwh = states('sensor.kachelofen_speicherenergie') | float(0) %}
+          {% set speicher_kg = [speicher_kwh / 4, 6] | min %}
+          {% set kg_buche = [kg_buche - speicher_kg, 0] | max %}
+
+          {% set art = states('input_select.kamin_holzart') | default('Buche', true) %}
+          {% set hw = {'Buche': 4.0, 'Eiche': 4.0, 'Esche': 4.0, 'Birke': 4.1, 'Fichte': 4.3, 'Kiefer': 4.3}.get(art, 4.0) %}
+          {% set kg_art = kg_buche * 4.0 / hw %}
+
+          {{ [(kg_art / 0.5) | round(0) * 0.5, 0.5] | max }}
+        attributes:
+          # --- lernwert_verwendet ---
+          lernwert_verwendet: >-
+            {% set lw = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0) %}
+            {{ (lw if 0.5 <= lw <= 1.5 else 'Faustwert 0.85 (Lernwert außerhalb 0.5-1.5)') }}
+
+          # --- nacht_effektiv ---
+          nacht_effektiv: >-
+            {% set nacht_prognose = states('sensor.vorhersage_nacht_mittel') | float(10) %}
+            {% set fehler = states('sensor.vorhersagefehler_letzte_nacht') | float(0) %}
+            {{ (nacht_prognose + fehler) | round(1) }} °C
+
+          # --- grundbedarf ---
+          grundbedarf: "{{ 8 }} kg (Basis für 12h bei 21°C Raumtemperatur)"
+
+          # --- diff_temperatur (JEDE VARIABLE NEU DEFINIERT!) ---
+          diff_temperatur: >-
+            {% set ziel = states('input_number.kachelofen_zieltemperatur') | float(21) %}
+            {% set tin = [states('sensor.greenhouse_temperatur') | float(20), ziel] | min %}
+            {% set nacht_prognose = states('sensor.vorhersage_nacht_mittel') | float(10) %}
+            {% set fehler = states('sensor.vorhersagefehler_letzte_nacht') | float(0) %}
+            {% set nacht_effektiv = nacht_prognose + fehler %}
+            {% set diff = [tin - nacht_effektiv, 0] | max %}
+            {{ diff | round(1) }} K
+
+          # --- speicher_abzug (JEDE VARIABLE NEU DEFINIERT!) ---
+          speicher_abzug: >-
+            {% set speicher_kwh = states('sensor.kachelofen_speicherenergie') | float(0) %}
+            {% set speicher_kg = [speicher_kwh / 4, 6] | min %}
+            {{ speicher_kg | round(1) }} kg
+
+          # --- berechnung (JEDE VARIABLE NEU DEFINIERT!) ---
+          berechnung: >-
+            {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.65) %}
+            {% set lw = [lernwert, 0.5] | max %}
+            {% set lw = [lw, 1.5] | min %}
+            {% set ziel = states('input_number.kachelofen_zieltemperatur') | float(21) %}
+            {% set tin = [states('sensor.greenhouse_temperatur') | float(20), ziel] | min %}
+            {% set nacht_prognose = states('sensor.vorhersage_nacht_mittel') | float(10) %}
+            {% set fehler = states('sensor.vorhersagefehler_letzte_nacht') | float(0) %}
+            {% set nacht_effektiv = nacht_prognose + fehler %}
+            {% set diff = [tin - nacht_effektiv, 0] | max %}
+            {% set grundbedarf = 8 %}
+            {% set kg_buche = grundbedarf + lw * diff + (states('input_number.kachelofen_empfehlung_korrektur') | float(0)) %}
+            {% set speicher_kwh = states('sensor.kachelofen_speicherenergie') | float(0) %}
+            {% set speicher_kg = [speicher_kwh / 4, 6] | min %}
+            {% set kg_buche = [kg_buche - speicher_kg, 0] | max %}
+            Grundbedarf (8 kg) + Lernwert ({{ lw | round(2) }}) × Temperaturdifferenz ({{ diff | round(1) }} K) = {{ (8 + lw * diff) | round(1) }} kg Buche - Speicherabzug ({{ speicher_kg | round(1) }} kg) = {{ kg_buche | round(1) }} kg Buche
+
+          # --- empfehlung_text (JEDE VARIABLE NEU DEFINIERT!) ---
+          empfehlung_text: >-
+            {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.65) %}
+            {% set lw = [lernwert, 0.5] | max %}
+            {% set lw = [lw, 1.5] | min %}
+            {% set ziel = states('input_number.kachelofen_zieltemperatur') | float(21) %}
+            {% set tin = [states('sensor.greenhouse_temperatur') | float(20), ziel] | min %}
+            {% set nacht_prognose = states('sensor.vorhersage_nacht_mittel') | float(10) %}
+            {% set fehler = states('sensor.vorhersagefehler_letzte_nacht') | float(0) %}
+            {% set nacht_effektiv = nacht_prognose + fehler %}
+            {% set diff = [tin - nacht_effektiv, 0] | max %}
+            {% set grundbedarf = 8 %}
+            {% set kg_buche = grundbedarf + lw * diff + (states('input_number.kachelofen_empfehlung_korrektur') | float(0)) %}
+            {% set speicher_kwh = states('sensor.kachelofen_speicherenergie') | float(0) %}
+            {% set speicher_kg = [speicher_kwh / 4, 6] | min %}
+            {% set kg_buche = [kg_buche - speicher_kg, 0] | max %}
+            {% set art = states('input_select.kamin_holzart') | default('Buche', true) %}
+            {% set hw = {'Buche': 4.0, 'Eiche': 4.0, 'Esche': 4.0, 'Birke': 4.1, 'Fichte': 4.3, 'Kiefer': 4.3}.get(art, 4.0) %}
+            {% set kg_art = kg_buche * 4.0 / hw %}
+            {% if kg_art > 0 %}
+              Verbrenne {{ [(kg_art / 0.5) | round(0) * 0.5, 0.5] | max }} kg {{ art }} für die nächste Nacht ({{ nacht_effektiv | round(1) }} °C).
+            {% else %}
+              Kein Holz nötig – Speicher reicht aus ({{ speicher_kwh | round(1) }} kWh).
+            {% endif %}
+
+      # --- Lernend Empfehlung ---
+      - name: "Kachelofen Holzmenge Empfehlung (lernend)"
+        unique_id: kachelofen_holzmenge_empfehlung_lernend
+        unit_of_measurement: "kg"
+        state_class: measurement
+        icon: mdi:fire-circle
+        availability: >-
+          {{ has_value('input_number.kachelofen_lernfaktor_kg_pro_grad')
+             and has_value('input_number.kachelofen_zieltemperatur') }}
+        state: >-
+          {% set ziel = states('input_number.kachelofen_zieltemperatur') | float(22) %}
+          {% set t_ist = states('sensor.greenhouse_temperatur') | float(21) %}
+          {% set lernfaktor = states('input_number.kachelofen_lernfaktor_kg_pro_grad') | float(0.75) %}
+          {% set fehlt = [ziel - t_ist, 0] | max %}
+          {% set kg = (fehlt + 0.5) * lernfaktor %}
+          {% set kg_gerundet = ((kg + 0.25) / 0.5) | round(0) * 0.5 %}
+          {{ [kg_gerundet, 0.5] | max }}
+
+      # --- Basis Empfehlung ---
+      - name: "Kachelofen Holzmenge Empfehlung"
+        unique_id: kachelofen_holz_empfehlung
+        unit_of_measurement: "kg"
+        icon: mdi:fire-alert
+        availability: >
+          {{ has_value('sensor.vorhersage_nacht_mittel') }}
+        state: >
+          {% set tin = states('sensor.greenhouse_temperatur') | float(21) %}
+          {% set nacht_mittel = states('sensor.vorhersage_nacht_mittel') | float(nan) %}
+          {% if nacht_mittel != nacht_mittel %}
+            {{ 'keine Vorhersage' }}
+          {% else %}
+            {% set diff = [tin - nacht_mittel, 0] | max %}
+            {% set kg_buche = 4 + 0.85 * diff %}
+            {% set art = states('input_select.kamin_holzart') | default('Buche', true) %}
+            {% set hw = {'Buche': 4.0, 'Eiche': 4.0, 'Esche': 4.0, 'Birke': 4.1, 'Fichte': 4.3, 'Kiefer': 4.3}.get(art, 4.0) %}
+            {% set kg_art = kg_buche * 4.0 / hw %}
+            {{ (kg_art / 0.5) | round(0) * 0.5 }}
+          {% endif %}
+        attributes:
+          energiebedarf_kwh: >
+            {% set tin = states('sensor.greenhouse_temperatur') | float(22.5) %}
+            {% set nacht_mittel = states('sensor.vorhersage_nacht_mittel') | float(0) %}
+            {% set diff = [tin - nacht_mittel, 0] | max %}
+            {{ ((4 + 0.85 * diff) * 4.0) | round(1) }}
+          holzart: "{{ states('input_select.kamin_holzart') }}"
+
+  # =====================================================================
+  # 15. 19:00 UHR EMPFEHLUNG (ANGEPASST)
+  # =====================================================================
+  - trigger:
+      - platform: time_pattern
+        minutes: "/15"
+    sensor:
+      - name: "Holzmenge für 22°C morgen 07:00 (19:00 Abbrand)"
+        unique_id: holzmenge_19_uhr_fuer_22_grad_morgen
+        unit_of_measurement: "kg"
+        icon: mdi:fire
+        availability: >-
+          {{ has_value('sensor.vorhersage_nacht_mittel')
+             and has_value('sensor.vorhersagefehler_letzte_nacht')
+             and has_value('sensor.kachelofen_speicherenergie')
+             and has_value('sensor.kachelofen_lernwert_kg_pro_grad')
+             and has_value('input_select.kamin_holzart') }}
+        state: >-
+          {% set ziel = 22.0 %}
+          {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.85) %}
+          {% set lw = 0.85 if lernwert <= 0 else [lernwert, 0.15] | max %}
+          {% set lw = [lw, 1.2] | min %}
+          {% set nacht_prognose = states('sensor.vorhersage_nacht_mittel') | float(5) %}
+          {% set fehler = states('sensor.vorhersagefehler_letzte_nacht') | float(0) %}
+          {% set nacht_effektiv = nacht_prognose + fehler %}
+          {% set speicher_kwh = states('sensor.kachelofen_speicherenergie') | float(0) %}
+          {% set diff = [ziel - nacht_effektiv, 0] | max %}
+          {% set grundbedarf = 8 + lw * diff %}  # ANGEPASST: 8 kg
+          {% set energie_benoetigt = grundbedarf * 4.0 %}
+          {% set energie_fehlend = [energie_benoetigt - speicher_kwh, 0] | max %}
+          {% set kg_buche = energie_fehlend / 4.0 %}
+          {% set art = states('input_select.kamin_holzart') | default('Buche', true) %}
+          {% set hw = {'Buche': 4.0, 'Eiche': 4.0, 'Esche': 4.0, 'Birke': 4.1, 'Fichte': 4.3, 'Kiefer': 4.3}.get(art, 4.0) %}
+          {% set kg_art = kg_buche * 4.0 / hw %}
+          {{ [((kg_art + 0.25) / 0.5) | round(0) * 0.5, 0.5] | max }}
+        attributes:
+          ziel_temperatur: "22.0 °C"
+          nacht_prognose: "{{ nacht_prognose | round(1) }} °C"
+          nacht_effektiv: "{{ nacht_effektiv | round(1) }} °C"
+          speicherenergie: "{{ speicher_kwh | round(1) }} kWh"
+          energie_benoetigt: "{{ energie_benoetigt | round(1) }} kWh"
+          energie_fehlend: "{{ energie_fehlend | round(1) }} kWh"
+          holzart: "{{ art }}"
+          heizwert: "{{ hw }} kWh/kg"
+
