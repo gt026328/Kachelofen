@@ -1,0 +1,184 @@
+# =====================================================================
+# Kachelofen Saison-Monitor (separates Paket)
+# Stand: 2026-11-05 (Bereinigte Version - KEINE DUPLIKATE!)
+# Enthält NUR die Saison-Auswertung Nov-März:
+#   - Einfrieren der Jahreszähler-Stände (1. Nov / 31. Dez)
+#   - Saison Ist / Soll / Abweichung / Prognose / Holzprognose / Status
+# =====================================================================
+
+template:
+  # =================================================================
+  # TÄGLICH UM 00:05: Ist heute der 1. November?
+  # Dann Jahreszähler-Stand einfrieren (Saisonstart)
+  # =================================================================
+  - trigger:
+      - platform: time
+        at: "00:05:00"
+    sensor:
+      - name: "Kachelofen Saison Start Stand"
+        unique_id: saison_start_stand
+        unit_of_measurement: "kWh"
+        state_class: measurement
+        state: >
+          {% if now().month == 11 and now().day == 1 %}
+            {{ states('sensor.kachelofen_energie_dieses_jahr') | float(0) | round(0) }}
+          {% else %}
+            {{ this.state | float(0) }}
+          {% endif %}
+        attributes:
+          eingefroren_am: >
+            {% if now().month == 11 and now().day == 1 %}
+              {{ now().date() }}
+            {% else %}
+              {{ this.attributes.get('eingefroren_am', 'noch nicht eingefroren') }}
+            {% endif %}
+          bedeutung: "Jahreszähler-Stand am 1. November - davon ab geht die neue Saison"
+          naechster_stichtag: "1. November, tägliche Prüfung um 00:05"
+
+  # =================================================================
+  # TÄGLICH UM 23:55: Ist heute der 31. Dezember?
+  # Dann Stand vor Jahresreset einfrieren
+  # =================================================================
+  - trigger:
+      - platform: time
+        at: "23:55:00"
+    sensor:
+      - name: "Kachelofen Stand 31 Dezember"
+        unique_id: stand_31_dezember
+        unit_of_measurement: "kWh"
+        state_class: measurement
+        state: >
+          {% if now().month == 12 and now().day == 31 %}
+            {{ states('sensor.kachelofen_energie_dieses_jahr') | float(0) | round(0) }}
+          {% else %}
+            {{ this.state | float(0) }}
+          {% endif %}
+        attributes:
+          eingefroren_am: >
+            {% if now().month == 12 and now().day == 31 %}
+              {{ now().date() }}
+            {% else %}
+              {{ this.attributes.get('eingefroren_am', 'noch nicht eingefroren') }}
+            {% endif %}
+          bedeutung: "Jahreszähler-Stand kurz vor Jahreswechsel = Nov+Dez der Saison"
+          naechster_stichtag: "31. Dezember, tägliche Prüfung um 23:55"
+
+  # =================================================================
+  # SAISON-BERECHNUNG (alle 6 Stunden + bei HA-Start)
+  # =================================================================
+  - trigger:
+      - platform: time_pattern
+        hours: "/6"
+      - platform: homeassistant
+        event: start
+    sensor:
+      - name: "Kachelofen Saison Ist Kumulativ"
+        unique_id: saison_ist_kumulativ
+        unit_of_measurement: "kWh"
+        state_class: measurement
+        icon: mdi:counter
+        state: >
+          {% set jahr_zaehler = states('sensor.kachelofen_energie_dieses_jahr') | float(0) %}
+          {% set m = now().month %}
+          {% if m == 11 or m == 12 %}
+            {% set start_stand = states('sensor.kachelofen_saison_start_stand') | float(0) %}
+            {{ (jahr_zaehler - start_stand) | round(0) }}
+          {% elif m <= 3 %}
+            {% set dez_stand = states('sensor.kachelofen_stand_31_dezember') | float(0) %}
+            {{ (dez_stand + jahr_zaehler) | round(0) }}
+          {% else %}
+            0
+          {% endif %}
+        attributes:
+          saison_zeitraum: "1. November bis 31. März"
+
+      - name: "Kachelofen Saison Soll Kumulativ"
+        unique_id: saison_soll_kumulativ
+        unit_of_measurement: "kWh"
+        icon: mdi:target
+        state: >
+          {% set now = now() %}
+          {% set monat = now.month %}
+          {% set jahr = now.year - 1 if monat <= 3 else now.year %}
+          {% set start = strptime(jahr ~ '-11-01', '%Y-%m-%d') %}
+          {% set d = (now.date() - start.date()).days %}
+          {% if d < 0 or d > 151 %}
+            0
+          {% elif d <= 30 %}
+            {{ (1600 * d / 30) | round(0) }}
+          {% elif d <= 61 %}
+            {{ (1600 + 1740 * (d - 30) / 31) | round(0) }}
+          {% elif d <= 92 %}
+            {{ (3340 + 2000 * (d - 61) / 31) | round(0) }}
+          {% elif d <= 120 %}
+            {{ (5340 + 1060 * (d - 92) / 29) | round(0) }}
+          {% else %}
+            {{ (6400 + 700 * (d - 120) / 31) | round(0) }}
+          {% endif %}
+        attributes:
+          saison_gesamt_kwh: 7100
+          saison_basis: "Prognose 22°C Wohnzimmer, Buche, Normalwinter"
+
+      - name: "Kachelofen Saison Abweichung"
+        unique_id: saison_abweichung
+        unit_of_measurement: "kWh"
+        state_class: measurement
+        icon: mdi:chart-bell-curve
+        state: >
+          {{ (states('sensor.kachelofen_saison_ist_kumulativ') | float(0)
+              - states('sensor.kachelofen_saison_soll_kumulativ') | float(0)) | round(0) }}
+        attributes:
+          abweichung_prozent: >
+            {% set soll = states('sensor.kachelofen_saison_soll_kumulativ') | float(0) %}
+            {% if soll > 0 %}
+              {{ (((states('sensor.kachelofen_saison_ist_kumulativ') | float(0) - soll) / soll) * 100) | round(1) }} %
+            {% else %} keine Saison aktiv {% endif %}
+
+      - name: "Kachelofen Saison Prognose kWh"
+        unique_id: kachelofen_saison_prognose_kwh
+        unit_of_measurement: "kWh"
+        state_class: measurement
+        icon: mdi:chart-line
+        state: >
+          {% set monat = now().month %}
+          {% if monat < 4 or monat > 10 %}  # Nur in der Heizsaison (Nov–Mär)
+            {% set jahr = now().year - 1 if monat <= 3 else now().year %}
+            {% set saison_start = strptime(jahr ~ '-11-01', '%Y-%m-%d').date() %}
+            {% set d = (now().date() - saison_start).days %}
+            {% set fortschritt = ([d, 1] | min) / 151 %}  # 151 Tage (1. Nov–31. Mär)
+            {% if fortschritt > 0.03 %}  # Mindestfortschritt 3%
+              {{ (states('sensor.kachelofen_saison_ist_kumulativ') | float(0) / fortschritt) | round(0) }}
+            {% else %}
+              7100  # Fallback-Wert
+            {% endif %}
+          {% else %}
+            7100  # Fallback-Wert außerhalb der Saison
+          {% endif %}
+        attributes:
+          plan_kwh: 7100
+
+      - name: "Kachelofen Saison Holzprognose"
+        unique_id: saison_holzprognose
+        unit_of_measurement: "rm"
+        icon: mdi:fireplace
+        state: >
+          {{ (states('sensor.kachelofen_saison_prognose_kwh') | float(7100) / 1750) | round(1) }}
+        attributes:
+          kwh_prognose: "{{ states('sensor.kachelofen_saison_prognose_kwh') }} kWh"
+          kg_buche_prognose: >-
+            {{ (states('sensor.kachelofen_saison_prognose_kwh') | float(7100) / 4.0) | round(0) }} kg
+          umrechnung: "1 Raummeter Buche lufttrocken = ca. 1750 kWh"
+
+      - name: "Kachelofen Saison Status"
+        unique_id: saison_status
+        icon: mdi:fireplace
+        state: >
+          {% set ist = states('sensor.kachelofen_saison_ist_kumulativ') | float(0) %}
+          {% set soll = states('sensor.kachelofen_saison_soll_kumulativ') | float(0) %}
+          {% set prognose = states('sensor.kachelofen_saison_prognose_kwh') | float(7100) %}
+          {% set rm = states('sensor.kachelofen_saison_holzprognose') | float(0) %}
+          {% if soll <= 0 %}
+            Außerhalb der Heizsaison (Nov-Mrz). Planwert: 7100 kWh / 4.1 rm
+          {% else %}
+            Ist {{ ist }} kWh / Soll {{ soll }} kWh - Prognose Saisonende: {{ prognose }} kWh = {{ rm }} rm
+          {% endif %}
