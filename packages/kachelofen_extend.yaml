@@ -16,7 +16,7 @@ template:
       - platform: homeassistant
         event: start
     sensor:
-      - name: "Kachelofen Abkühlkoeffizient"
+      - name: "Kachelofen Abkuehlkoeffizient"
         unique_id: kachelofen_abkuehlkoeffizient
         unit_of_measurement: "K/h/°C"
         state_class: measurement

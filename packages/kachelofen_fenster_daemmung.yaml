@@ -20,7 +20,7 @@ template:
           sensor_quelle: "sensor.temp_esszimmer_temperatur"
           position: "Ostfenster (Mitte, ~1,2m Hoehe)"
 
-      - name: "Fenster Ost ΔT zu Raumluft"
+      - name: "Fenster Ost dT zu Raumluft"
         unique_id: fenster_ost_dt_zu_raumluft
         unit_of_measurement: "°C"
         state_class: measurement
