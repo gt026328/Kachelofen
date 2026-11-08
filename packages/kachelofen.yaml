@@ -1,5 +1,5 @@
 # =====================================================================
-# Kachelofen: Waermemenge, Heizleistung & Daemmqualitaet + Fensteranalyse
+# Kachelofen: Warmemenge, Heizleistung & Daemmqualitaet + Fensteranalyse
 # Home-Assistant-Paket - VOLLSTAENDIG KORRIGIERT
 # Stand: 2026-11-06 07:30
 # Alle Fehler behoben: Zeitzonen, Syntax, Logik, kumulative Sensoren
@@ -18,7 +18,7 @@ input_number:
     mode: box
     icon: mdi:fire
 
-  kachelofen_waermemenge_kumulativ:
+  kachelofen_warmemenge_kumulativ:
     name: "Wärmemenge kumulativ"
     unit_of_measurement: "kWh"
     min: 0
@@ -28,7 +28,7 @@ input_number:
     icon: mdi:fire
     mode: box
 
-  kachelofen_waermemenge_letzter_abbrand:
+  kachelofen_warmemenge_letzter_abbrand:
     name: "Wärmemenge letzter Abbrand"
     unit_of_measurement: "kWh"
     min: 0
@@ -176,6 +176,29 @@ template:
       - name: "Kachelofen Holzart letzter Abbrand"
         unique_id: kachelofen_holzart_letzte
         state: "{{ states('input_select.kamin_holzart') }}"
+
+  # =====================================================================
+  # 1b. KUMULATIVER ENERGIEZÄHLER (total_increasing - zählt selbst hoch)
+  # =====================================================================
+  - trigger:
+      - platform: state
+        entity_id: binary_sensor.kachelofen_zahler_ofen_brennt
+        from: "on"
+        to: "off"
+        for: "00:30:00"
+    sensor:
+      - name: "Kachelofen Warmemenge kumulativ"
+        unique_id: kachelofen_warmemenge_kumulativ_sensor
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total_increasing
+        icon: mdi:fire
+        state: >-
+          {% set alt = this.state | float(0) %}
+          {% set menge = states('input_number.kamin_holzmenge') | float(0) %}
+          {% set art = states('input_select.kamin_holzart') | default('Buche', true) %}
+          {% set hw = {'Buche': 4.0, 'Eiche': 4.0, 'Esche': 4.0, 'Birke': 4.1, 'Fichte': 4.3, 'Kiefer': 4.3}.get(art, 4.0) %}
+          {{ (alt + menge * hw) | round(2) }}
 
   # =====================================================================
   # 2. 07:00 UHR: NACHTWERTE EINFRIEREN
@@ -326,8 +349,8 @@ template:
           {% set hw = {'Buche': 4.0, 'Eiche': 4.0, 'Esche': 4.0, 'Birke': 4.1, 'Fichte': 4.3, 'Kiefer': 4.3}.get(art, 4.0) %}
           {{ (menge * hw) | round(2) }}
         attributes:
-          letzer_abbrand_energie: "{{ states('input_number.kachelofen_waermemenge_letzter_abbrand') | float(0) }} kWh"
-          aktuell_kumulativ: "{{ states('input_number.kachelofen_waermemenge_kumulativ') | float(0) }} kWh"
+          letzer_abbrand_energie: "{{ states('input_number.kachelofen_warmemenge_letzter_abbrand') | float(0) }} kWh"
+          aktuell_kumulativ: "{{ states('sensor.kachelofen_warmemenge_kumulativ') | float(0) }} kWh"
 
   # =====================================================================
   # 6. MAX-TEMPERATUR WÄHREND DES ABBRANDS
@@ -562,7 +585,7 @@ template:
         state_class: total_increasing
         icon: mdi:fire
         state: >-
-          {% set energie = states('input_number.kachelofen_waermemenge_kumulativ') | float(0) %}
+          {% set energie = states('sensor.kachelofen_warmemenge_kumulativ') | float(0) %}
           {{ (energie / 4.0) | round(2) }}
 
       - name: "Kachelofen Holzmasse kumulativ (Buche, Ster)"
@@ -571,14 +594,14 @@ template:
         state_class: total_increasing
         icon: mdi:cube
         state: >-
-          {% set energie = states('input_number.kachelofen_waermemenge_kumulativ') | float(0) %}
+          {% set energie = states('sensor.kachelofen_warmemenge_kumulativ') | float(0) %}
           {% set kg = energie / 4.0 %}
           {{ (kg / 500) | round(3) }}
         attributes:
           kg: >-
-            {% set energie = states('input_number.kachelofen_waermemenge_kumulativ') | float(0) %}
+            {% set energie = states('sensor.kachelofen_warmemenge_kumulativ') | float(0) %}
             {{ (energie / 4.0) | round(2) }}
-          kwh: "{{ states('input_number.kachelofen_waermemenge_kumulativ') | float(0) | round(2) }} kWh"
+          kwh: "{{ states('sensor.kachelofen_warmemenge_kumulativ') | float(0) | round(2) }} kWh"
 
 # =====================================================================
 # UTILITY METER (nur für Monats-/Jahreszähler)
@@ -587,13 +610,13 @@ utility_meter:
   kachelofen_energie_monat:
     name: "Kachelofen Energie diesen Monat"
     unique_id: kachelofen_energie_monat
-    source: input_number.kachelofen_waermemenge_kumulativ
+    source: sensor.kachelofen_warmemenge_kumulativ
     cycle: monthly
 
   kachelofen_energie_dieses_jahr:
     name: "Kachelofen Energie dieses Jahr"
     unique_id: kachelofen_energie_dieses_jahr
-    source: input_number.kachelofen_waermemenge_kumulativ
+    source: sensor.kachelofen_warmemenge_kumulativ
     cycle: yearly
 
 # =====================================================================
@@ -652,18 +675,6 @@ automation:
             - Dauer {{ (states('sensor.kachelofen_zahler_letzte_abbranddauer') | int(0)) // 60 }} h
             {{ (states('sensor.kachelofen_zahler_letzte_abbranddauer') | int(0)) % 60 }} min
             - Max {{ states('sensor.kachelofen_zahler_letzte_maximaltemperatur') | round(1) }} °C
-
-      # Energie kumulativ aktualisieren
-      - action: input_number.set_value
-        target:
-          entity_id: input_number.kachelofen_waermemenge_kumulativ
-        data:
-          value: >-
-            {% set aktuell = states('input_number.kachelofen_waermemenge_kumulativ') | float(0) %}
-            {% set menge = states('input_number.kamin_holzmenge') | float(0) %}
-            {% set art = states('input_select.kamin_holzart') | default('Buche', true) %}
-            {% set hw = {'Buche': 4.0, 'Eiche': 4.0, 'Esche': 4.0, 'Birke': 4.1, 'Fichte': 4.3, 'Kiefer': 4.3}.get(art, 4.0) %}
-            {{ (aktuell + menge * hw) | round(2) }}
 
       # Holzmenge zurücksetzen
       - action: input_number.set_value
