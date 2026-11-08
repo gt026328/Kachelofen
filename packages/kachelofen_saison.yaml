@@ -149,10 +149,10 @@ template:
             {% if fortschritt > 0.03 %}
               {{ (states('sensor.kachelofen_saison_ist_kumulativ') | float(0) / fortschritt) | round(0) }}
             {% else %}
-              7100  # Fallback-Wert
+              7100
             {% endif %}
           {% else %}
-            7100  # Fallback-Wert außerhalb der Saison
+            7100
           {% endif %}
         attributes:
           plan_kwh: 7100
