@@ -242,7 +242,7 @@ template:
           {% if kg > 0 and ddiff > 0 and start_stunde >= 12 %}
             {{ (kg / ddiff) | round(3) }}
           {% else %}
-            {{ this.state | default(0) | float(0) }}  # 👈 IMMER NUMERISCH!
+            {{ this.state | default(0) | float(0) }}
           {% endif %}
         attributes:
           verwertbare_nacht: "{{ (this.state | float(0)) > 0 }}"
