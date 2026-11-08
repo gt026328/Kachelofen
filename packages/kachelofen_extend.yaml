@@ -32,7 +32,7 @@ template:
           {% set delta_raum = t_vor - t_morgen %}
           {% set delta_aussen = t_vor - t_aussen %}
           {% if delta_aussen > 0 %}
-            {{ (delta_raum / delta_aussen / 12) | round(3) }}  # 12h = 12 Stunden
+            {{ (delta_raum / delta_aussen / 12) | round(3) }}
           {% else %}
             {{ this.state | float(0) if this.state is not none else 0 }}
           {% endif %}
@@ -131,7 +131,7 @@ template:
           {% elif backup_ok %}
             {{ states(backup) | float(20) | round(1) }}
           {% else %}
-            unavailable
+            {{ this.state | default(20) | float(20) | round(1) }}
           {% endif %}
         availability: >-
           {{ states('sensor.greenhouse_temperatur') not in ['unavailable', 'unknown', 'none']

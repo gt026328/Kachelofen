@@ -141,12 +141,12 @@ template:
         icon: mdi:chart-line
         state: >
           {% set monat = now().month %}
-          {% if monat < 4 or monat > 10 %}  # Nur in der Heizsaison (Nov–Mär)
+          {% if monat < 4 or monat > 10 %}
             {% set jahr = now().year - 1 if monat <= 3 else now().year %}
             {% set saison_start = strptime(jahr ~ '-11-01', '%Y-%m-%d').date() %}
             {% set d = (now().date() - saison_start).days %}
-            {% set fortschritt = ([d, 1] | min) / 151 %}  # 151 Tage (1. Nov–31. Mär)
-            {% if fortschritt > 0.03 %}  # Mindestfortschritt 3%
+            {% set fortschritt = ([d, 1] | min) / 151 %}
+            {% if fortschritt > 0.03 %}
               {{ (states('sensor.kachelofen_saison_ist_kumulativ') | float(0) / fortschritt) | round(0) }}
             {% else %}
               7100  # Fallback-Wert

@@ -412,7 +412,7 @@ template:
           {% set nacht_effektiv = nacht_prognose + fehler %}
           {% set speicher_kwh = states('sensor.kachelofen_speicherenergie') | float(0) %}
           {% set diff = [ziel - nacht_effektiv, 0] | max %}
-          {% set grundbedarf = 8 + lw * diff %}  # ANGEPASST: 8 kg
+          {% set grundbedarf = 8 + lw * diff %}
           {% set energie_benoetigt = grundbedarf * 4.0 %}
           {% set energie_fehlend = [energie_benoetigt - speicher_kwh, 0] | max %}
           {% set kg_buche = energie_fehlend / 4.0 %}
