@@ -18,6 +18,7 @@ template:
     sensor:
       - name: "Kachelofen Abkühlkoeffizient"
         unique_id: kachelofen_abkuehlkoeffizient
+        entity_id: sensor.kachelofen_abkuehlkoeffizient
         unit_of_measurement: "K/h/°C"
         state_class: measurement
         icon: mdi:thermometer-down
