@@ -75,7 +75,7 @@ template:
         state_class: measurement
         icon: mdi:chart-line
         state: >-
-          {% set heute = states('sensor.kachelofen_abkühlkoeffizient') | float(0) %}
+          {% set heute = states('sensor.kachelofen_abkuehlkoeffizient') | float(0) %}
           {% set gestern = this.attributes.get('vortag', heute) | float(0) %}
           {% if gestern > 0 %}
             {{ ((heute - gestern) / gestern * 100) | round(1) }}
@@ -83,12 +83,12 @@ template:
             0
           {% endif %}
         attributes:
-          heute: "{{ states('sensor.kachelofen_abkühlkoeffizient') | float(0) | round(3) }}"
+          heute: "{{ states('sensor.kachelofen_abkuehlkoeffizient') | float(0) | round(3) }}"
           vortag: >-
             {% if this.attributes.get('vortag') %}
               {{ this.attributes.vortag | float(0) | round(3) }}
             {% else %}
-              {{ states('sensor.kachelofen_abkühlkoeffizient') | float(0) | round(3) }}
+              {{ states('sensor.kachelofen_abkuehlkoeffizient') | float(0) | round(3) }}
             {% endif %}
           interpretation: >-
             {% set diff = this.state | float(0) %}
