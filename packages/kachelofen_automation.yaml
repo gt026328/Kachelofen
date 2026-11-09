@@ -186,8 +186,8 @@ automation:
   # =====================================================================
   # OFEN-VENTIL: gepulster Betrieb bei Ueberhitzung (> 92 °C)
   # Ablauf: 10 min an -> aus -> 2 min warten -> Abkuehlrate pruefen
-  #   positiv: wieder 10 min an ... (Schleife)
-  #   negativ: 5 min warten -> erneut pruefen -> weiterhin negativ: exit
+  #   negativ (> 0): wieder 10 min an ... (Schleife)
+  #   positiv (< 0): 5 min warten -> erneut pruefen -> weiterhin positiv: exit
   # =====================================================================
   - alias: "Kachelofen Ventil: gepulst bei ueber 92 Grad"
     id: kachelofen_ventil_gepulst_ueber_92
@@ -211,7 +211,7 @@ automation:
         target:
           entity_id: switch.ofen_vent
       - delay: "00:02:00"
-      # solange Abkuehlrate positiv: weiter pulsen (10 min an, aus, 2 min warten)
+      # solange Abkuehlrate > 0 (negativ): weiter pulsen (10 min an, aus, 2 min warten)
       - repeat:
           while:
             - condition: numeric_state
@@ -226,7 +226,7 @@ automation:
               target:
                 entity_id: switch.ofen_vent
             - delay: "00:02:00"
-      # Abkuehlrate negativ: 5 min warten, erneut pruefen; weiterhin negativ -> exit
+      # Abkuehlrate < 0 (positiv): 5 min warten, erneut pruefen; weiterhin positiv -> exit
       - delay: "00:05:00"
       - condition: numeric_state
         entity_id: sensor.kachelofen_zaehler_abkuehlrate
