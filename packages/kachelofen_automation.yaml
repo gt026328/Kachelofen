@@ -182,13 +182,15 @@ automation:
             Pruefe Dichtungen oder Daemmung!
     mode: single
 
+
   # =====================================================================
-  # OFEN-VENT: Hysterese-Regelung (ein > 92 °C, aus < 86 °C)
-  # Zeit-Trigger alle 5 Min. sorgt für fortlaufende Ueberpruefung
-  # um den Lüfter über switch.ofen_vent ein/aus zu schalten
+  # OFEN-VENTIL: gepulster Betrieb bei Ueberhitzung (> 92 °C)
+  # Ablauf: 10 min an -> aus -> 2 min warten -> Abkuehlrate pruefen
+  #   positiv: wieder 10 min an ... (Schleife)
+  #   negativ: 5 min warten -> erneut pruefen -> weiterhin negativ: exit
   # =====================================================================
-  - alias: "Kachelofen Ventil: Einschalten bei ueber 92 Grad"
-    id: kachelofen_ventil_ein_ueber_92
+  - alias: "Kachelofen Ventil: gepulst bei ueber 92 Grad"
+    id: kachelofen_ventil_gepulst_ueber_92
     triggers:
       - trigger: numeric_state
         entity_id: sensor.kachelofen_zahler_kachelofen_temperatur
@@ -200,25 +202,33 @@ automation:
         entity_id: sensor.kachelofen_zahler_kachelofen_temperatur
         above: 92
     actions:
+      # erstes Pulsen: 10 min an, dann aus, 2 min warten
       - action: switch.turn_on
         target:
           entity_id: switch.ofen_vent
-    mode: single
-
-  - alias: "Kachelofen Ventil: Ausschalten bei unter 86 Grad"
-    id: kachelofen_ventil_aus_unter_86
-    triggers:
-      - trigger: numeric_state
-        entity_id: sensor.kachelofen_zahler_kachelofen_temperatur
-        below: 86
-      - trigger: time_pattern
-        minutes: "/5"
-    conditions:
-      - condition: numeric_state
-        entity_id: sensor.kachelofen_zahler_kachelofen_temperatur
-        below: 86
-    actions:
+      - delay: "00:10:00"
       - action: switch.turn_off
         target:
           entity_id: switch.ofen_vent
+      - delay: "00:02:00"
+      # solange Abkuehlrate positiv: weiter pulsen (10 min an, aus, 2 min warten)
+      - repeat:
+          while:
+            - condition: numeric_state
+              entity_id: sensor.kachelofen_zaehler_abkuehlrate
+              above: 0
+          sequence:
+            - action: switch.turn_on
+              target:
+                entity_id: switch.ofen_vent
+            - delay: "00:10:00"
+            - action: switch.turn_off
+              target:
+                entity_id: switch.ofen_vent
+            - delay: "00:02:00"
+      # Abkuehlrate negativ: 5 min warten, erneut pruefen; weiterhin negativ -> exit
+      - delay: "00:05:00"
+      - condition: numeric_state
+        entity_id: sensor.kachelofen_zaehler_abkuehlrate
+        below: 0
     mode: single
