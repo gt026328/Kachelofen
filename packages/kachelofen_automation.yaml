@@ -183,8 +183,9 @@ automation:
     mode: single
 
   # =====================================================================
-  # OFEN-VENTIL: Hysterese-Regelung (ein > 92 °C, aus < 86 °C)
+  # OFEN-VENT: Hysterese-Regelung (ein > 92 °C, aus < 86 °C)
   # Zeit-Trigger alle 5 Min. sorgt für fortlaufende Ueberpruefung
+  # um den Lüfter über switch.ofen_vent ein/aus zu schalten
   # =====================================================================
   - alias: "Kachelofen Ventil: Einschalten bei ueber 92 Grad"
     id: kachelofen_ventil_ein_ueber_92
