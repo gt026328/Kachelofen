@@ -1,6 +1,6 @@
 # =====================================================================
 # Kachelofen: Automationen (ausgelagert aus kachelofen.yaml)
-# + Ofen-Ventil Hysterese-Regelung (ein > 92 °C, aus < 86 °C)
+# + Ofen-Ventil Hysterese-Regelung (ein > 95 °C, aus < 86 °C)
 # =====================================================================
 
 # =====================================================================
@@ -183,28 +183,28 @@ automation:
     mode: single
 
   # =====================================================================
-  # OFEN-VENTIL: taktender Betrieb bis unter 92 °C
+  # OFEN-VENTIL: taktender Betrieb bis unter 95 °C
   # Pro Zyklus: 10 min an -> aus -> 2 min abwarten -> Anstieg neu bewerten
-  # Ende: Temperatur < 92 °C ODER Temperaturanstieg <= 0 (Ofen kuehlt von allein)
+  # Ende: Temperatur < 95 °C ODER Temperaturanstieg <= 0 (Ofen kuehlt von allein)
   # =====================================================================
-  - alias: "Kachelofen Ventil: taktend bis unter 92 Grad"
-    id: kachelofen_ventil_taktend_unter_92
+  - alias: "Kachelofen Ventil: taktend bis unter 95 Grad"
+    id: kachelofen_ventil_taktend_unter_95
     triggers:
       - trigger: numeric_state
         entity_id: sensor.kachelofen_zahler_kachelofen_temperatur
-        above: 92
+        above: 95
       - trigger: time_pattern
         minutes: "/5"
     conditions:
       - condition: numeric_state
         entity_id: sensor.kachelofen_zahler_kachelofen_temperatur
-        above: 92
+        above: 95
     actions:
       - repeat:
           while:
             - condition: numeric_state
               entity_id: sensor.kachelofen_zahler_kachelofen_temperatur
-              above: 92
+              above: 95
             - condition: numeric_state
               entity_id: sensor.kachelofen_zahler_temperaturanstieg
               above: 0
