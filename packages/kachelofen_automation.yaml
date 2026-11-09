@@ -199,6 +199,11 @@ automation:
       - condition: numeric_state
         entity_id: sensor.kachelofen_zahler_kachelofen_temperatur
         above: 95
+      # erst starten, wenn der Ofen noch steigt; bei negativem Temperaturanstieg
+      # (Ofen kuehlt von allein) schaltet sich der Ventilator nicht mehr ein
+      - condition: numeric_state
+        entity_id: sensor.kachelofen_zahler_temperaturanstieg
+        above: 0
     actions:
       - repeat:
           while:
