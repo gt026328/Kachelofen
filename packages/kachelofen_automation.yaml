@@ -1,6 +1,6 @@
 # =====================================================================
 # Kachelofen: Automationen (ausgelagert aus kachelofen.yaml)
-# + Ofen-Ventil Hysterese-Regelung (ein > 92 °C, aus < 86 °C)
+# + Ofen-Ventil Hysterese-Regelung (ein > 95 °C, aus < 86 °C)
 # =====================================================================
 
 # =====================================================================
@@ -182,38 +182,29 @@ automation:
             Pruefe Dichtungen oder Daemmung!
     mode: single
 
-
   # =====================================================================
-  # OFEN-VENTIL: gepulster Betrieb bei Ueberhitzung (> 92 °C)
-  # Ablauf: 10 min an -> aus -> 2 min warten -> Abkuehlrate pruefen
-  #   positiv (> 0): wieder 10 min an ... (Schleife)
-  #   negativ (< 0): 5 min warten -> erneut pruefen -> weiterhin negativ: exit
+  # OFEN-VENTIL: taktender Betrieb bis unter 95 °C
+  # Pro Zyklus: 10 min an -> aus -> 2 min abwarten -> Anstieg neu bewerten
+  # Ende: Temperatur < 95 °C ODER Temperaturanstieg <= 0 (Ofen kuehlt von allein)
   # =====================================================================
-  - alias: "Kachelofen Ventil: gepulst bei ueber 92 Grad"
-    id: kachelofen_ventil_gepulst_ueber_92
+  - alias: "Kachelofen Ventil: taktend bis unter 95 Grad"
+    id: kachelofen_ventil_taktend_unter_95
     triggers:
       - trigger: numeric_state
         entity_id: sensor.kachelofen_zahler_kachelofen_temperatur
-        above: 92
+        above: 95
       - trigger: time_pattern
         minutes: "/5"
     conditions:
       - condition: numeric_state
         entity_id: sensor.kachelofen_zahler_kachelofen_temperatur
-        above: 92
+        above: 95
     actions:
-      # erstes Pulsen: 10 min an, dann aus, 2 min warten
-      - action: switch.turn_on
-        target:
-          entity_id: switch.ofen_vent
-      - delay: "00:10:00"
-      - action: switch.turn_off
-        target:
-          entity_id: switch.ofen_vent
-      - delay: "00:02:00"
-      # solange Temperaturanstieg positiv (> 0): weiter pulsen (10 min an, aus, 2 min warten)
       - repeat:
           while:
+            - condition: numeric_state
+              entity_id: sensor.kachelofen_zahler_kachelofen_temperatur
+              above: 95
             - condition: numeric_state
               entity_id: sensor.kachelofen_zahler_temperaturanstieg
               above: 0
@@ -226,9 +217,7 @@ automation:
               target:
                 entity_id: switch.ofen_vent
             - delay: "00:02:00"
-      # Temperaturanstieg negativ (< 0): 5 min warten, erneut pruefen; weiterhin negativ -> exit
-      - delay: "00:05:00"
-      - condition: numeric_state
-        entity_id: sensor.kachelofen_zahler_temperaturanstieg
-        below: 0
+      - action: switch.turn_off
+        target:
+          entity_id: switch.ofen_vent
     mode: single
