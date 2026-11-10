@@ -1,0 +1,344 @@
+views:
+  - title: Ofen Alltag
+    icon: mdi:fire
+    cards:
+      - type: grid
+        columns: 2
+        cards:
+          - type: gauge
+            name: Empfehlung Gelernt
+            entity: sensor.kachelofen_holzmenge_empfehlung_gelernt
+            min: 0
+            max: 25
+            severity:
+              green: 6
+              yellow: 12
+              red: 0
+          - type: gauge
+            name: Morgenempfehlung
+            entity: sensor.kachelofen_morgenempfehlung_holzmenge
+            min: 0
+            max: 15
+            severity:
+              green: 4
+              yellow: 8
+              red: 0
+      - type: entities
+        title: Abbrand steuern
+        entities:
+          - entity: input_number.kachelofen_zieltemperatur
+            name: Zieltemperatur Wohnzimmer (aktuell 22.5)
+          - entity: input_number.kamin_holzmenge
+            name: Holzmenge aktueller Abbrand
+          - entity: input_select.kamin_holzart
+            name: Holzart
+          - entity: input_number.kachelofen_empfehlung_korrektur
+            name: Feinkorrektur
+          - entity: binary_sensor.kachelofen_zahler_ofen_brennt
+            name: Ofen brennt
+          - entity: sensor.kachelofen_zahler_kachelofen_temperatur
+          - entity: sensor.kachelofen_zahler_letzte_abbranddauer
+            name: Letzte Abbranddauer
+          - entity: sensor.kachelofen_mittlere_heizleistung
+            name: Ø Heizleistung letzter Abbrand
+      - type: markdown
+        content: >
+          **Morgenempfehlung – Begründung**
+
+          {{ states('sensor.kachelofen_morgenempfehlung_holzmenge') }} {{ state_attr('sensor.kachelofen_morgenempfehlung_holzmenge', 'unit_of_measurement') }}
+          — {{ state_attr('sensor.kachelofen_morgenempfehlung_holzmenge', 'begruendung') }}
+      - type: entities
+        title: Empfehlungen im Vergleich
+        entities:
+          - entity: sensor.kachelofen_holzmenge_empfehlung_gelernt
+            name: Gelernt (Hauptkarte)
+            secondary_info: last_changed
+          - entity: sensor.kachelofen_holzmenge_empfehlung_lernend
+          - entity: sensor.kachelofen_holzmenge_empfehlung_kalibriert
+            name: Kalibriert (fehlerkorrigiert)
+          - entity: sensor.kachelofen_holzmenge_empfehlung
+            name: Basis (Faustformel-Referenz)
+          - entity: sensor.kachelofen_morgenempfehlung_holzmenge
+            name: Morgen (Soll ich anzünden?)
+      - type: markdown
+        content: >
+          **Überschuss-Kontrolle (letzter Brand)** Max-Temperatur seit Abbrandstart:
+          **{{ states('sensor.wohnzimmer_max_seit_abbrandstart') }} °C**
+          {{ state_attr('sensor.wohnzimmer_max_seit_abbrandstart', 'ueberschuss') }}
+      - type: markdown
+        content: >
+          **Prognose Raumtemperatur morgen 07:00 Uhr: {{ states('sensor.prognose_raumtemperatur_morgen_07') }} °C**
+          (Ziel: {{ states('input_number.kachelofen_zieltemperatur') }} °C)
+          **Energiebedarf:** Holz: {{ state_attr('sensor.prognose_raumtemperatur_morgen_07', 'energie_holz') }}
+          - Speicher: {{ state_attr('sensor.prognose_raumtemperatur_morgen_07', 'energie_speicher') }}
+          **Nacht-Aussentemperatur:** {{ state_attr('sensor.prognose_raumtemperatur_morgen_07', 'nacht_aussentemperatur') }}
+      - type: tile
+        entity: switch.ofen_vent
+        name: "Ofen-Ventil (Automatik: > 95 °C taktend)"
+        icon: mdi:fan
+  - title: Ofen Akku
+    icon: mdi:battery-charging-medium
+    cards:
+      - type: entity
+        entity: sensor.kachelofen_speicherenergie
+        name: Speicherenergie
+        icon: mdi:battery-charging-medium
+        secondary_info: |-
+          {% if states('sensor.kachelofen_speicherenergie') | float(0) > 0 %}
+            {{ state_attr('sensor.kachelofen_speicherenergie', 'ladezustand') }}
+          {% else %}
+            Unbekannt
+          {% endif %}
+      - type: markdown
+        content: >
+          **Haltungsbedarf jetzt: {{ states('sensor.kachelofen_haltungsbedarf_22_grad') }} kW**
+          ({{ state_attr('sensor.kachelofen_haltungsbedarf_22_grad', 'holz_pro_stunde') }})
+      - type: tile
+        entity: sensor.speicherenergie_verbrauch_7_12_uhr_theoretisch
+      - type: entities
+        title: Speicher-Übersicht
+        entities:
+          - entity: input_number.speicherenergie_7_uhr
+          - entity: sensor.speicherenergie_verbrauch_7_12_uhr_theoretisch
+          - entity: sensor.kachelofen_speicherenergie
+      - type: markdown
+        content: >
+          **Was mir der Ofen erspart:** {{ state_attr('sensor.kachelofen_morgenempfehlung_holzmenge', 'rabatt_durch_speicher') }}
+          Speicherrest: {{ state_attr('sensor.kachelofen_morgenempfehlung_holzmenge', 'speicherrest') }}
+      - type: entities
+        title: Ofen-Zustand
+        entities:
+          - entity: sensor.ofen_stunden_seit_abbrand
+            name: Stunden seit Abbrand
+      - type: markdown
+        content: >
+          **Akkudiagnose** **Ladezustand:** {{ state_attr('sensor.kachelofen_speicherenergie', 'ladezustand') }}
+          **Deckt kommende Nacht:** {{ state_attr('sensor.kachelofen_speicherenergie', 'deckt_nachtbedarf') }}
+          **Reicht für:** {{ state_attr('sensor.kachelofen_speicherenergie', 'reicht_fuer_stunden') }}
+          **Ofentemperatur (Deckstein):** {{ state_attr('sensor.kachelofen_speicherenergie', 'ofentemperatur') }}
+      - type: history-graph
+        title: Speicher-Entladekurve (48 h)
+        hours_to_show: 48
+        entities:
+          - sensor.kachelofen_speicherenergie
+          - sensor.kachelofen_zahler_kachelofen_temperatur
+  - title: Lernsystem
+    icon: mdi:school
+    cards:
+      - type: entity
+        name: 'Lernwert kg/K (Ziel: stabil ~0.6)'
+        entity: sensor.kachelofen_lernwert_kg_pro_grad
+      - type: markdown
+        content: >
+          **Lernwert-Qualität** Verwendeter Lernwert:
+          {{ state_attr('sensor.kachelofen_holzmenge_empfehlung_gelernt', 'lernwert_verwendet') }}
+          Letzte Nacht – Verlust: {{ state_attr('sensor.raumtemperatur_morgen', 'verlust_ueber_nacht') }}
+      - type: history-graph
+        title: Lernwert-Stabilität (7 Tage)
+        hours_to_show: 168
+        entities:
+          - sensor.kachelofen_lernwert_kg_pro_grad
+      - type: entities
+        title: Vorhersage-Genauigkeit
+        entities:
+          - entity: sensor.vorhersage_nacht_mittel
+            name: Vorhersage Nacht Mittel
+          - entity: sensor.aussentemperatur_letzte_nacht_ist
+            name: Letzte Nacht Ist-Mittel
+          - entity: sensor.vorhersagefehler_letzte_nacht
+            name: Vorhersagefehler (pos. = wärmer)
+          - entity: sensor.vorhersagefehler_nacht_mittel_24h
+            name: Vorhersagefehler Mittel 24h
+      - type: entities
+        title: Letzte Nacht im Detail
+        entities:
+          - entity: sensor.raumtemperatur_morgen
+            name: Raumtemperatur heute Morgen
+          - entity: sensor.raumtemperatur_morgen_mittel_7d
+            name: Mittel 7 Tage
+          - entity: sensor.abkuehlrate_letzte_nacht_ist
+            name: Abkühlrate letzte Nacht
+          - entity: sensor.raumtemperatur_vor_abbrand_differenz
+            name: Abfall vor Abbrand (90 min)
+  - title: Energie & Saison
+    icon: mdi:chart-bar
+    cards:
+      - type: grid
+        columns: 4
+        cards:
+          - type: statistic
+            name: Energie aktueller Abbrand
+            entity: sensor.kachelofen_energie_aktueller_abbrand
+            stat_type: state
+            period:
+              hours: 24
+          - type: statistic
+            name: Energie heute
+            entity: sensor.kachelofen_energie_heute
+            stat_type: change
+            period:
+              calendar:
+                period: day
+          - type: statistic
+            name: Energie diesen Monat
+            entity: sensor.kachelofen_energie_diesen_monat
+            stat_type: change
+            period:
+              calendar:
+                period: month
+          - type: statistic
+            name: Energie dieses Jahr
+            entity: sensor.kachelofen_energie_dieses_jahr
+            stat_type: change
+            period:
+              calendar:
+                period: year
+      - type: tile
+        entity: sensor.kachelofen_haltungsbedarf_22_grad
+        name: Haltungsbedarf
+        state_content:
+          - state
+          - aussentemperatur
+          - holz_pro_stunde
+          - verlustbeiwert
+        vertical: false
+        features_position: bottom
+      - type: statistics-graph
+        entities:
+          - sensor.kachelofen_haltungsbedarf_22_grad
+        days_to_show: 1
+        period: hour
+        chart_type: line
+        stat_types:
+          - mean
+      - type: entities
+        title: Holzmasse kumulativ
+        entities:
+          - entity: sensor.kachelofen_holzmasse_kumulativ_buche
+            name: Holzmasse (Buche, kg)
+          - entity: sensor.kachelofen_holzmasse_kumulativ_buche_ster
+            name: Holzmasse (Buche, Ster)
+      - type: gauge
+        entity: sensor.kachelofen_abkuhlkoeffizient
+        name: Abkühlkoeffizient
+        min: 0
+        max: 0.5
+        severity:
+          green: 0
+          yellow: 0.15
+          red: 0.3
+      - type: entities
+        title: Letzter Abbrand – Visitenkarte
+        entities:
+          - entity: sensor.kachelofen_holzmenge_letzter_abbrand
+            name: Holzmenge letzter Abbrand
+          - entity: sensor.kachelofen_holzart_letzter_abbrand
+            name: Holzart
+          - entity: sensor.kachelofen_warmemenge_kumulativ
+            name: Gesamtenergie seit Inbetriebnahme
+          - entity: sensor.kachelofen_zahler_letzte_maximaltemperatur
+            name: Maximaltemperatur letzter Brand
+      - type: history-graph
+        entities:
+          - entity: sensor.kachelofen_energie_aktueller_abbrand
+          - sensor.kachelofen_holzmenge_letzter_abbrand
+          - sensor.kachelofen_warmemenge_kumulativ
+        title: Verbrauch (30 Tage)
+        hours_to_show: 720
+      - type: entities
+        title: Saison 2026/27
+        entities:
+          - entity: sensor.kachelofen_saison_start_stand
+            name: Saison-Start-Stand (1. Nov)
+          - entity: sensor.kachelofen_saison_status
+            name: Saison-Status
+          - entity: sensor.kachelofen_saison_ist_kumulativ
+            name: Saison Ist (kWh)
+          - entity: sensor.kachelofen_saison_soll_kumulativ
+            name: Saison Soll (kWh)
+          - entity: sensor.kachelofen_saison_abweichung
+            name: Abweichung
+          - entity: sensor.kachelofen_saison_prognose_kwh
+            name: Prognose Saisonende (kWh)
+          - entity: sensor.kachelofen_saison_holzprognose
+            name: Holzprognose (rm)
+      - type: history-graph
+        entities:
+          - entity: sensor.gw3000a_outdoor_temperature
+        hours_to_show: 168
+      - type: statistic
+        entity: sensor.kachelofen_saison_ist_kumulativ
+        period:
+          calendar:
+            period: month
+        stat_type: mean
+  - title: Haus Diagnose
+    icon: mdi:home-analytics
+    cards:
+      - type: statistic
+        entity: sensor.kachelofen_abkuhlkoeffizient_vergleich
+        period:
+          calendar:
+            period: month
+        stat_type: max
+      - type: markdown
+        content: >
+          **Solarer Gewinn** {{ states('sensor.solarer_gewinn_wohnzimmer') }}
+          Aufwärmrate Tag: {{ state_attr('sensor.solarer_gewinn_wohnzimmer', 'aufwaermrate') }}
+      - type: entities
+        title: Ostfenster (11 m² Dreifachglas)
+        entities:
+          - entity: sensor.fenster_ost_dt_zu_raumluft
+            name: ΔT Fenster ↔ Raumluft
+          - entity: sensor.fenster_ost_waermeverlust_index
+            name: Verlustindex (5 = sehr gut)
+          - entity: sensor.fenster_ost_waermeverlust_windkorrigiert
+            name: Windkorrigiert
+          - entity: sensor.fenster_ost_u_wert_schaetzung
+            name: U-Wert-Schätzung (W/m²K)
+          - entity: sensor.fenster_ost_verlustleistung
+            name: Verlustleistung (W)
+          - entity: sensor.fenster_ost_tagesgang
+            name: Tagesgang
+      - type: grid
+        columns: 2
+        cards:
+          - type: gauge
+            name: Dämmqualitäts-Index (5 = sehr gut)
+            entity: sensor.daemmqualitaet_wohnzimmer_index
+            min: 1
+            max: 5
+            severity:
+              red: 2
+              yellow: 3
+              green: 5
+          - type: gauge
+            name: Windanfälligkeit (%)
+            entity: sensor.haus_windanfalligkeit
+            min: 0
+            max: 100
+            needle: true
+      - type: history-graph
+        title: Fenster & Raum (48 h)
+        hours_to_show: 48
+        entities:
+          - sensor.temp_esszimmer_temperatur
+          - sensor.greenhouse_temperatur
+          - sensor.gw3000a_outdoor_temperature
+      - type: markdown
+        content: >
+          **Tagesfazit** {{ states('sensor.daemmqualitaet_tagesfazit') }}
+          Innen/Außen-Differenz: {{ state_attr('sensor.daemmqualitaet_wohnzimmer', 'innen_aussen_differenz') }}
+      - type: entities
+        title: Dämmung im Detail
+        entities:
+          - entity: sensor.daemmqualitaet_wohnzimmer
+            name: Dämmqualität (Text)
+          - entity: sensor.wohnzimmer_abkuehlrate
+            name: Aktuelle Abkühlrate
+          - entity: sensor.daemmqualitaet_wohnzimmer_windkorrigiert
+            name: Windkorrigierter Index
+          - entity: sensor.daemmqualitaet_wohnzimmer_inkl_fenster
+            name: Inkl. Fenster
+          - entity: sensor.kachelofen_abkuhlkoeffizient
+            name: Abkühlkoeffizient
