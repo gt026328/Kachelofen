@@ -91,8 +91,8 @@ views:
           {% endif %}
       - type: markdown
         content: >
-          **Haltungsbedarf jetzt: {{ states('sensor.kachelofen_haltungsbedarf_22_grad') }} kW**
-          ({{ state_attr('sensor.kachelofen_haltungsbedarf_22_grad', 'holz_pro_stunde') }})
+          **Haltungsbedarf jetzt: {{ states('sensor.kachelofen_haltungsbedarf') }} kW**
+          ({{ state_attr('sensor.kachelofen_haltungsbedarf', 'holz_pro_stunde') }})
       - type: tile
         entity: sensor.speicherenergie_verbrauch_7_12_uhr_theoretisch
       - type: entities
@@ -194,7 +194,7 @@ views:
               calendar:
                 period: year
       - type: tile
-        entity: sensor.kachelofen_haltungsbedarf_22_grad
+        entity: sensor.kachelofen_haltungsbedarf
         name: Haltungsbedarf
         state_content:
           - state
@@ -205,7 +205,7 @@ views:
         features_position: bottom
       - type: statistics-graph
         entities:
-          - sensor.kachelofen_haltungsbedarf_22_grad
+          - sensor.kachelofen_haltungsbedarf
         days_to_show: 1
         period: hour
         chart_type: line
