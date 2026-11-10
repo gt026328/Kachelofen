@@ -506,7 +506,7 @@ template:
   # =====================================================================
   # 9. HALTUNGSBEDARF
   # =====================================================================
-      - name: "Kachelofen Haltungsbedarf 22 Grad"
+      - name: "Kachelofen Haltungsbedarf"
         unique_id: kachelofen_haltungsbedarf
         unit_of_measurement: "kW"
         state_class: measurement
