@@ -136,11 +136,11 @@ automation:
             {% set ueberschuss = [max_temp - ziel, 0] | max %}
             {% set holzmenge = states('input_number.kamin_holzmenge') | float(0) %}
             {% if ueberschuss > 0 %}
-              {% set aktueller_lernfaktor = states('input_number.kachelofen_lernfaktor_kg_pro_grad') | float(0.85) %}
+              {% set aktueller_lernfaktor = states('input_number.kachelofen_lernfaktor_kg_pro_grad') | float(0.6) %}
               {% set neuer_lernfaktor = (aktueller_lernfaktor * 0.7 + holzmenge / ueberschuss * 0.3) | round(2) %}
               {{ neuer_lernfaktor }}
             {% else %}
-              {{ states('input_number.kachelofen_lernfaktor_kg_pro_grad') | float(0.85) }}
+              {{ states('input_number.kachelofen_lernfaktor_kg_pro_grad') | float(0.6) }}
             {% endif %}
 
   # 5. Warnung: Hoher Fenster-Wärmeverlust
