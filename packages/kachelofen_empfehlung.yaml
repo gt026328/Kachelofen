@@ -38,7 +38,7 @@ template:
           {% set C = 4 * lw %}
           {% set rate = states('sensor.wohnzimmer_abkuehlrate') | float(0) %}
           {% set dt_now = [states('sensor.greenhouse_temperatur') | float(20) - states('sensor.gw3000a_outdoor_temperature') | float(5), 1] | max %}
-          {% set G = ([rate | abs / dt_now, 0.05] | max) if rate < 0 else (lw * 4 / 12) %}
+          {% set G = ([rate | abs / dt_now, 0.1] | max) if rate < 0 else (lw * 4 / 12) %}
           {% set wind = states('sensor.gw3000a_wind_speed') | float(0) %}
           {% set G = G * (1 + wind / 100) %}
           {% set t_out = states('sensor.vorhersage_nacht_mittel') | float(states('sensor.gw3000a_outdoor_temperature') | float(5)) + states('sensor.vorhersagefehler_letzte_nacht') | float(0) %}
@@ -54,7 +54,8 @@ template:
           {% set t_eq = t_out + P / G %}
           {% set tau = C / G %}
           {% set t_07 = t_eq + (t_start - t_eq) * 2.71828 ** (-(h / tau)) %}
-          {{ t_07 | round(1) }}
+          {% set ziel = states('input_number.kachelofen_zieltemperatur') | float(22) %}
+          {{ [t_07, ziel + 5] | min | round(1) }}
         attributes:
           t_start: >
             {% if trigger.entity_id is defined and 'ofen_brennt' in trigger.entity_id %}
