@@ -28,9 +28,9 @@ automation:
       - condition: numeric_state
         entity_id: sensor.kachelofen_zahler_letzte_abbranddauer
         above: 0
-      - condition: numeric_state
-        entity_id: sensor.kachelofen_zahler_kachelofen_temperatur
-        below: 90
+      - condition: state
+        entity_id: input_boolean.ventil_aktiv
+        state: "off"
     actions:
       - delay: "00:00:20"
 
@@ -79,9 +79,9 @@ automation:
         to: "off"
         for: "00:45:00"
     conditions:
-      - condition: numeric_state
-        entity_id: sensor.kachelofen_zahler_kachelofen_temperatur
-        below: 90
+      - condition: state
+        entity_id: input_boolean.ventil_aktiv
+        state: "off"
     action:
       - service: input_datetime.set_datetime
         target:
@@ -110,9 +110,9 @@ automation:
         to: "off"
         for: "00:45:00"
     conditions:
-      - condition: numeric_state
-        entity_id: sensor.kachelofen_zahler_kachelofen_temperatur
-        below: 90
+      - condition: state
+        entity_id: input_boolean.ventil_aktiv
+        state: "off"
     action:
       - service: input_number.set_value
         target:
@@ -216,6 +216,9 @@ automation:
         entity_id: sensor.kachelofen_zahler_temperaturanstieg
         above: 0
     actions:
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.ventil_aktiv
       - repeat:
           while:
             - condition: numeric_state
@@ -236,4 +239,7 @@ automation:
       - action: switch.turn_off
         target:
           entity_id: switch.ofen_vent
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.ventil_aktiv
     mode: single

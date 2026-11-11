@@ -101,6 +101,11 @@ input_number:
     initial: 0.6  # ANGEPASST: Startwert auf 0.6 gesenkt (Empfehlungen waren zu hoch)
     icon: mdi:brain
 
+input_boolean:
+  ventil_aktiv:
+    name: "Ventilator aktiv (Abbrand-Ende pausiert)"
+    icon: mdi:fan
+
 input_select:
   kamin_holzart:
     name: "Holzart"
@@ -197,7 +202,7 @@ template:
         unit_of_measurement: "kg"
         state_class: measurement
         state: >-
-          {% if states('sensor.kachelofen_zahler_kachelofen_temperatur') | float(999) < 90 %}
+          {% if is_state('input_boolean.ventil_aktiv', 'off') %}
             {{ states('input_number.kamin_holzmenge') | float(0) }}
           {% else %}
             {{ this.state }}
@@ -206,7 +211,7 @@ template:
       - name: "Kachelofen Holzart letzter Abbrand"
         unique_id: kachelofen_holzart_letzte
         state: >-
-          {% if states('sensor.kachelofen_zahler_kachelofen_temperatur') | float(999) < 90 %}
+          {% if is_state('input_boolean.ventil_aktiv', 'off') %}
             {{ states('input_select.kamin_holzart') }}
           {% else %}
             {{ this.state }}
@@ -229,7 +234,7 @@ template:
         state_class: total_increasing
         icon: mdi:fire
         state: >-
-          {% if states('sensor.kachelofen_zahler_kachelofen_temperatur') | float(999) < 90 %}
+          {% if is_state('input_boolean.ventil_aktiv', 'off') %}
             {% set alt = this.state | float(0) %}
             {% set menge = states('input_number.kamin_holzmenge') | float(0) %}
             {% set art = states('input_select.kamin_holzart') | default('Buche', true) %}
