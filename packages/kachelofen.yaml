@@ -494,8 +494,8 @@ template:
           deckt_nachtbedarf: >
             {% set speicher = this.state | float(0) %}
             {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0) %}
-            {% set lw = 0.85 if lernwert <= 0 else [lernwert, 0.15] | max %}
-            {% set lw = [lw, 1.2] | min %}
+            {% set lw = 0.6 if lernwert <= 0 else [lernwert, 0.15] | max %}
+            {% set lw = [lw, 0.6] | min %}
             {% set ziel = states('input_number.kachelofen_zieltemperatur') | float(21) %}
             {% set t_out_aktuell = states('sensor.gw3000a_outdoor_temperature') | float(5) %}
             {% set t_out_nacht = states('sensor.vorhersage_nacht_mittel') | float(5) + states('sensor.vorhersagefehler_letzte_nacht') | float(0) %}
@@ -512,8 +512,8 @@ template:
           reicht_fuer_stunden: >
             {% set speicher = this.state | float(0) %}
             {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0) %}
-            {% set lw = 0.85 if lernwert <= 0 else [lernwert, 0.15] | max %}
-            {% set lw = [lw, 1.2] | min %}
+            {% set lw = 0.6 if lernwert <= 0 else [lernwert, 0.15] | max %}
+            {% set lw = [lw, 0.6] | min %}
             {% set diff = [states('input_number.kachelofen_zieltemperatur') | float(21) - states('sensor.gw3000a_outdoor_temperature') | float(5), 0] | max %}
             {% set verlustleistung = lw * diff * 4 / 12 %}
             {% if verlustleistung > 0 %}
@@ -535,8 +535,8 @@ template:
              and has_value('sensor.greenhouse_temperatur') }}
         state: >
           {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0) %}
-          {% set lw = 0.85 if lernwert <= 0 else [lernwert, 0.15] | max %}
-          {% set lw = [lw, 1.2] | min %}
+          {% set lw = 0.6 if lernwert <= 0 else [lernwert, 0.15] | max %}
+          {% set lw = [lw, 0.6] | min %}
           {% set G = lw * 4 / 12 %}
           {% set wind = states('sensor.gw3000a_wind_speed') | float(0) %}
           {% set G = G * (1 + wind / 100) %}
@@ -545,7 +545,7 @@ template:
           {{ [G * (ziel - t_out), 0] | max | round(2) }}
         attributes:
           holz_pro_stunde: >
-            {% set lw = 0.85 if states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0) <= 0 else [states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0), 0.15] | max %}
+            {% set lw = 0.6 if states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0) <= 0 else [states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0), 0.15] | max %}
             {% set G = lw * 4 / 12 * (1 + states('sensor.gw3000a_wind_speed') | float(0) / 100) %}
             {% set ziel = states('input_number.kachelofen_zieltemperatur') | float(21) %}
             {% set t_out = states('sensor.gw3000a_outdoor_temperature') | float(5) %}
@@ -554,7 +554,7 @@ template:
           aussentemperatur: "{{ states('sensor.gw3000a_outdoor_temperature') }} °C"
           zieltemperatur: "{{ states('input_number.kachelofen_zieltemperatur') }} °C"
           verlustbeiwert: >
-            {{ ((0.85 if states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0) <= 0 else [states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0), 0.15] | max) * 4 / 12 * (1 + states('sensor.gw3000a_wind_speed') | float(0) / 100)) | round(3) }} kW/K
+            {{ ((0.6 if states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0) <= 0 else [states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0), 0.15] | max) * 4 / 12 * (1 + states('sensor.gw3000a_wind_speed') | float(0) / 100)) | round(3) }} kW/K
 
   # =====================================================================
   # 10. SPEICHERENERGIE VERBRAUCH 7-12 UHR (Kommentare entfernt!)
@@ -565,7 +565,7 @@ template:
         state_class: measurement
         icon: mdi:chart-line
         state: >-
-          {% set lw = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.85) %}
+          {% set lw = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.6) %}
           {% set wind = states('sensor.gw3000a_wind_speed') | float(0) %}
           {% set G = lw * 4 / 12 * (1 + wind / 100) %}
           {% set t_raum = states('input_number.kachelofen_zieltemperatur') | float(21) %}
@@ -575,7 +575,7 @@ template:
           {{ (G * delta_t * zeit) | round(2) }}
         attributes:
           verlustbeiwert: >-
-            {% set lw = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.85) %}
+            {% set lw = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.6) %}
             {% set wind = states('sensor.gw3000a_wind_speed') | float(0) %}
             {{ (lw * 4 / 12 * (1 + wind / 100)) | round(3) }} kW/K
           temperaturdifferenz: >-

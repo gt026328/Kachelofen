@@ -34,7 +34,7 @@ template:
           {% endif %}
           {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0) %}
           {% set lw = 0.6 if lernwert <= 0 else [lernwert, 0.15] | max %}
-          {% set lw = [lw, 1.2] | min %}
+          {% set lw = [lw, 0.6] | min %}
           {% set C = 4 * lw %}
           {% set G = lw * 4 / 12 %}
           {% set wind = states('sensor.gw3000a_wind_speed') | float(0) %}
@@ -85,7 +85,7 @@ template:
           {% set tagesmittel = states('sensor.vorhersage_tag_mittel') | float(t_ist) %}
           {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0) %}
           {% set lw = 0.35 if lernwert <= 0 else [lernwert, 0.15] | max %}
-          {% set lw = [lw, 1.2] | min %}
+          {% set lw = [lw, 0.6] | min %}
           {% set grundbedarf = 4 %}
           {% set nacht_bedarf = lw * [ziel - tagesmittel, 0] | max %}
           {% set aufheizbedarf = [ziel - t_ist, 0] | max * 0.5 %}
@@ -242,7 +242,7 @@ template:
         state: >-
           {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.6) %}
           {% set lw = [lernwert, 0.5] | max %}
-          {% set lw = [lw, 1.5] | min %}
+          {% set lw = [lw, 0.6] | min %}
 
           {% set ziel = states('input_number.kachelofen_zieltemperatur') | float(22.5) %}
           {% set tin = [states('sensor.greenhouse_temperatur') | float(21), ziel] | min %}
@@ -300,7 +300,7 @@ template:
           berechnung: >-
             {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.65) %}
             {% set lw = [lernwert, 0.5] | max %}
-            {% set lw = [lw, 1.5] | min %}
+            {% set lw = [lw, 0.6] | min %}
             {% set ziel = states('input_number.kachelofen_zieltemperatur') | float(21) %}
             {% set tin = [states('sensor.greenhouse_temperatur') | float(20), ziel] | min %}
             {% set nacht_prognose = states('sensor.vorhersage_nacht_mittel') | float(10) %}
@@ -318,7 +318,7 @@ template:
           empfehlung_text: >-
             {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.65) %}
             {% set lw = [lernwert, 0.5] | max %}
-            {% set lw = [lw, 1.5] | min %}
+            {% set lw = [lw, 0.6] | min %}
             {% set ziel = states('input_number.kachelofen_zieltemperatur') | float(21) %}
             {% set tin = [states('sensor.greenhouse_temperatur') | float(20), ziel] | min %}
             {% set nacht_prognose = states('sensor.vorhersage_nacht_mittel') | float(10) %}
@@ -406,7 +406,7 @@ template:
           {% set ziel = 22.0 %}
           {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.6) %}
           {% set lw = 0.6 if lernwert <= 0 else [lernwert, 0.15] | max %}
-          {% set lw = [lw, 1.2] | min %}
+          {% set lw = [lw, 0.6] | min %}
           {% set nacht_prognose = states('sensor.vorhersage_nacht_mittel') | float(5) %}
           {% set fehler = states('sensor.vorhersagefehler_letzte_nacht') | float(0) %}
           {% set nacht_effektiv = nacht_prognose + fehler %}
@@ -435,7 +435,7 @@ template:
           energie_benoetigt: >
             {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.6) %}
             {% set lw = 0.6 if lernwert <= 0 else [lernwert, 0.15] | max %}
-            {% set lw = [lw, 1.2] | min %}
+            {% set lw = [lw, 0.6] | min %}
             {% set nacht_prognose = states('sensor.vorhersage_nacht_mittel') | float(5) %}
             {% set fehler = states('sensor.vorhersagefehler_letzte_nacht') | float(0) %}
             {% set diff = [22.0 - nacht_prognose - fehler, 0] | max %}
@@ -443,7 +443,7 @@ template:
           energie_fehlend: >
             {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.6) %}
             {% set lw = 0.6 if lernwert <= 0 else [lernwert, 0.15] | max %}
-            {% set lw = [lw, 1.2] | min %}
+            {% set lw = [lw, 0.6] | min %}
             {% set nacht_prognose = states('sensor.vorhersage_nacht_mittel') | float(5) %}
             {% set fehler = states('sensor.vorhersagefehler_letzte_nacht') | float(0) %}
             {% set diff = [22.0 - nacht_prognose - fehler, 0] | max %}
