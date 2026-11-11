@@ -174,7 +174,6 @@ sensor:
     name: "Abbranddauer Mittel 7d"
     entity_id: sensor.kachelofen_zahler_letzte_abbranddauer
     state_characteristic: mean
-    unit_of_measurement: "s"
     max_age:
       days: 7
     sampling_size: 200
@@ -183,7 +182,6 @@ sensor:
     name: "Max Ofentemperatur Abbrand Mittel 7d"
     entity_id: sensor.kachelofen_zahler_letzte_maximaltemperatur
     state_characteristic: mean
-    unit_of_measurement: "°C"
     max_age:
       days: 7
     sampling_size: 200
