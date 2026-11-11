@@ -151,7 +151,7 @@ sensor:
 
   - platform: statistics
     name: "Vorhersagefehler Nacht Mittel 24h"
-    entity_id: sensor.vorhersagefehler_nacht
+    entity_id: sensor.vorhersagefehler_letzte_nacht
     state_characteristic: mean
     max_age:
       hours: 24
