@@ -86,7 +86,7 @@ template:
           {% set t_ist = states('sensor.greenhouse_temperatur') | float(21) %}
           {% set tagesmittel = states('sensor.vorhersage_tag_mittel') | float(t_ist) %}
           {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0) %}
-          {% set lw = 0.35 if lernwert <= 0 else [lernwert, 0.15] | max %}
+          {% set lw = 0.6 if lernwert <= 0 else [lernwert, 0.15] | max %}
           {% set lw = [lw, 0.6] | min %}
           {% set grundbedarf = 4 %}
           {% set nacht_bedarf = lw * [ziel - tagesmittel, 0] | max %}
@@ -308,7 +308,7 @@ template:
 
           # --- berechnung (JEDE VARIABLE NEU DEFINIERT!) ---
           berechnung: >-
-            {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.65) %}
+            {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.6) %}
             {% set lw = [lernwert, 0.5] | max %}
             {% set lw = [lw, 0.6] | min %}
             {% set ziel = states('input_number.kachelofen_zieltemperatur') | float(21) %}
@@ -326,7 +326,7 @@ template:
 
           # --- empfehlung_text (JEDE VARIABLE NEU DEFINIERT!) ---
           empfehlung_text: >-
-            {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.65) %}
+            {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.6) %}
             {% set lw = [lernwert, 0.5] | max %}
             {% set lw = [lw, 0.6] | min %}
             {% set ziel = states('input_number.kachelofen_zieltemperatur') | float(21) %}
@@ -361,7 +361,7 @@ template:
         state: >-
           {% set ziel = states('input_number.kachelofen_zieltemperatur') | float(22) %}
           {% set t_ist = states('sensor.greenhouse_temperatur') | float(21) %}
-          {% set lernfaktor = states('input_number.kachelofen_lernfaktor_kg_pro_grad') | float(0.75) %}
+          {% set lernfaktor = states('input_number.kachelofen_lernfaktor_kg_pro_grad') | float(0.6) %}
           {% set fehlt = [ziel - t_ist, 0] | max %}
           {% set kg = (fehlt + 0.5) * lernfaktor %}
           {% set kg_gerundet = ((kg + 0.25) / 0.5) | round(0) * 0.5 %}
