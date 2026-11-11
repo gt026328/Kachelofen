@@ -33,10 +33,12 @@ template:
             {% set t_start = (this.attributes.t_start | default(states('sensor.raumtemperatur_vor_abbrand') | float(20))) | float(20) %}
           {% endif %}
           {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0) %}
-          {% set lw = 0.85 if lernwert <= 0 else [lernwert, 0.15] | max %}
-          {% set lw = [lw, 1.2] | min %}
+          {% set lw = 0.6 if lernwert <= 0 else [lernwert, 0.15] | max %}
+          {% set lw = [lw, 0.6] | min %}
           {% set C = 4 * lw %}
-          {% set G = lw * 4 / 12 %}
+          {% set rate = states('sensor.wohnzimmer_abkuehlrate') | float(0) %}
+          {% set dt_now = [states('sensor.greenhouse_temperatur') | float(20) - states('sensor.gw3000a_outdoor_temperature') | float(5), 1] | max %}
+          {% set G = ([rate | abs / dt_now, 0.05] | max) if rate < 0 else (lw * 4 / 12) %}
           {% set wind = states('sensor.gw3000a_wind_speed') | float(0) %}
           {% set G = G * (1 + wind / 100) %}
           {% set t_out = states('sensor.vorhersage_nacht_mittel') | float(states('sensor.gw3000a_outdoor_temperature') | float(5)) + states('sensor.vorhersagefehler_letzte_nacht') | float(0) %}
@@ -66,7 +68,7 @@ template:
           stunden_bis_7: "{{ [((7 - now().hour - now().minute / 60) % 24), 1] | max | round(1) }} h"
 
   # =====================================================================
-  # 12. MORGENEMPFEHLUNG (ANGEPASST: Grundbedarf=8kg, Lernwert=0.85)
+  # 12. MORGENEMPFEHLUNG (ANGEPASST: Grundbedarf=6kg, Lernwert=0.6)
   # =====================================================================
   - trigger:
       - platform: time_pattern
@@ -84,15 +86,23 @@ template:
           {% set t_ist = states('sensor.greenhouse_temperatur') | float(21) %}
           {% set tagesmittel = states('sensor.vorhersage_tag_mittel') | float(t_ist) %}
           {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0) %}
-          {% set lw = 0.35 if lernwert <= 0 else [lernwert, 0.15] | max %}
-          {% set lw = [lw, 1.2] | min %}
+          {% set lw = 0.6 if lernwert <= 0 else [lernwert, 0.15] | max %}
+          {% set lw = [lw, 0.6] | min %}
           {% set grundbedarf = 4 %}
           {% set nacht_bedarf = lw * [ziel - tagesmittel, 0] | max %}
           {% set aufheizbedarf = [ziel - t_ist, 0] | max * 0.5 %}
           {% set speicher_kwh = states('sensor.kachelofen_speicherenergie') | float(0) %}
-          {% set rabatt_kg = [speicher_kwh / 4, 6] | min %}
-          {% set kg = grundbedarf + nacht_bedarf + aufheizbedarf - rabatt_kg %}
-          {{ [((kg / 0.5) | round(0) * 0.5), 0] | max }}
+          {% set bedarf_kwh = lw * ([ziel - tagesmittel, 0] | max) * 4 %}
+          {% if t_ist >= ziel and (tagesmittel >= ziel - 2 or speicher_kwh >= bedarf_kwh) %}
+            0
+          {% else %}
+            {% set grundbedarf = 4 %}
+            {% set nacht_bedarf = lw * [ziel - tagesmittel, 0] | max %}
+            {% set aufheizbedarf = ([ziel - t_ist, 0] | max) * 0.5 %}
+            {% set rabatt_kg = [speicher_kwh / 4, 6] | min %}
+            {% set kg = grundbedarf + nacht_bedarf + aufheizbedarf - rabatt_kg %}
+            {{ [([(kg / 0.5) | round(0) * 0.5, 12] | min), 0] | max }}
+          {% endif %}
         attributes:
           empfehlung: >
             {% set this_state = this.state | float(0) %}
@@ -209,7 +219,7 @@ template:
             {% set fehler = states('sensor.vorhersagefehler_letzte_nacht') | float(0) %}
             {% set nacht_effektiv = nacht_prognose + fehler %}
             {% set diff = [tin - nacht_effektiv, 0] | max %}
-            {% set kg_buche = 4 + 0.85 * diff + states('input_number.kachelofen_empfehlung_korrektur') | float(0) %}
+            {% set kg_buche = 4 + 0.6 * diff + states('input_number.kachelofen_empfehlung_korrektur') | float(0) %}
             {% set art = states('input_select.kamin_holzart') | default('Buche', true) %}
             {% set hw = {'Buche': 4.0, 'Eiche': 4.0, 'Esche': 4.0, 'Birke': 4.1, 'Fichte': 4.3, 'Kiefer': 4.3}.get(art, 4.0) %}
             {% set kg_art = kg_buche * 4.0 / hw %}
@@ -240,9 +250,9 @@ template:
         unit_of_measurement: "kg"
         icon: mdi:fire-circle
         state: >-
-          {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.85) %}
+          {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.6) %}
           {% set lw = [lernwert, 0.5] | max %}
-          {% set lw = [lw, 1.5] | min %}
+          {% set lw = [lw, 0.6] | min %}
 
           {% set ziel = states('input_number.kachelofen_zieltemperatur') | float(22.5) %}
           {% set tin = [states('sensor.greenhouse_temperatur') | float(21), ziel] | min %}
@@ -253,7 +263,7 @@ template:
 
           {% set diff = [tin - nacht_effektiv, 0] | max %}
 
-          {% set grundbedarf = 8 %}
+          {% set grundbedarf = 6 %}
           {% set kg_buche = grundbedarf + lw * diff + (states('input_number.kachelofen_empfehlung_korrektur') | float(0)) %}
 
           {% set speicher_kwh = states('sensor.kachelofen_speicherenergie') | float(0) %}
@@ -269,7 +279,7 @@ template:
           # --- lernwert_verwendet ---
           lernwert_verwendet: >-
             {% set lw = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0) %}
-            {{ (lw if 0.5 <= lw <= 1.5 else 'Faustwert 0.85 (Lernwert außerhalb 0.5-1.5)') }}
+            {{ (lw if 0.5 <= lw <= 1.5 else 'Faustwert 0.6 (Lernwert außerhalb 0.5-1.5)') }}
 
           # --- nacht_effektiv ---
           nacht_effektiv: >-
@@ -298,16 +308,16 @@ template:
 
           # --- berechnung (JEDE VARIABLE NEU DEFINIERT!) ---
           berechnung: >-
-            {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.65) %}
+            {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.6) %}
             {% set lw = [lernwert, 0.5] | max %}
-            {% set lw = [lw, 1.5] | min %}
+            {% set lw = [lw, 0.6] | min %}
             {% set ziel = states('input_number.kachelofen_zieltemperatur') | float(21) %}
             {% set tin = [states('sensor.greenhouse_temperatur') | float(20), ziel] | min %}
             {% set nacht_prognose = states('sensor.vorhersage_nacht_mittel') | float(10) %}
             {% set fehler = states('sensor.vorhersagefehler_letzte_nacht') | float(0) %}
             {% set nacht_effektiv = nacht_prognose + fehler %}
             {% set diff = [tin - nacht_effektiv, 0] | max %}
-            {% set grundbedarf = 8 %}
+            {% set grundbedarf = 6 %}
             {% set kg_buche = grundbedarf + lw * diff + (states('input_number.kachelofen_empfehlung_korrektur') | float(0)) %}
             {% set speicher_kwh = states('sensor.kachelofen_speicherenergie') | float(0) %}
             {% set speicher_kg = [speicher_kwh / 4, 6] | min %}
@@ -316,16 +326,16 @@ template:
 
           # --- empfehlung_text (JEDE VARIABLE NEU DEFINIERT!) ---
           empfehlung_text: >-
-            {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.65) %}
+            {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.6) %}
             {% set lw = [lernwert, 0.5] | max %}
-            {% set lw = [lw, 1.5] | min %}
+            {% set lw = [lw, 0.6] | min %}
             {% set ziel = states('input_number.kachelofen_zieltemperatur') | float(21) %}
             {% set tin = [states('sensor.greenhouse_temperatur') | float(20), ziel] | min %}
             {% set nacht_prognose = states('sensor.vorhersage_nacht_mittel') | float(10) %}
             {% set fehler = states('sensor.vorhersagefehler_letzte_nacht') | float(0) %}
             {% set nacht_effektiv = nacht_prognose + fehler %}
             {% set diff = [tin - nacht_effektiv, 0] | max %}
-            {% set grundbedarf = 8 %}
+            {% set grundbedarf = 6 %}
             {% set kg_buche = grundbedarf + lw * diff + (states('input_number.kachelofen_empfehlung_korrektur') | float(0)) %}
             {% set speicher_kwh = states('sensor.kachelofen_speicherenergie') | float(0) %}
             {% set speicher_kg = [speicher_kwh / 4, 6] | min %}
@@ -351,7 +361,7 @@ template:
         state: >-
           {% set ziel = states('input_number.kachelofen_zieltemperatur') | float(22) %}
           {% set t_ist = states('sensor.greenhouse_temperatur') | float(21) %}
-          {% set lernfaktor = states('input_number.kachelofen_lernfaktor_kg_pro_grad') | float(0.75) %}
+          {% set lernfaktor = states('input_number.kachelofen_lernfaktor_kg_pro_grad') | float(0.6) %}
           {% set fehlt = [ziel - t_ist, 0] | max %}
           {% set kg = (fehlt + 0.5) * lernfaktor %}
           {% set kg_gerundet = ((kg + 0.25) / 0.5) | round(0) * 0.5 %}
@@ -371,7 +381,7 @@ template:
             {{ 'keine Vorhersage' }}
           {% else %}
             {% set diff = [tin - nacht_mittel, 0] | max %}
-            {% set kg_buche = 4 + 0.85 * diff %}
+            {% set kg_buche = 4 + 0.6 * diff %}
             {% set art = states('input_select.kamin_holzart') | default('Buche', true) %}
             {% set hw = {'Buche': 4.0, 'Eiche': 4.0, 'Esche': 4.0, 'Birke': 4.1, 'Fichte': 4.3, 'Kiefer': 4.3}.get(art, 4.0) %}
             {% set kg_art = kg_buche * 4.0 / hw %}
@@ -382,7 +392,7 @@ template:
             {% set tin = states('sensor.greenhouse_temperatur') | float(22.5) %}
             {% set nacht_mittel = states('sensor.vorhersage_nacht_mittel') | float(0) %}
             {% set diff = [tin - nacht_mittel, 0] | max %}
-            {{ ((4 + 0.85 * diff) * 4.0) | round(1) }}
+            {{ ((4 + 0.6 * diff) * 4.0) | round(1) }}
           holzart: "{{ states('input_select.kamin_holzart') }}"
 
   # =====================================================================
@@ -404,15 +414,15 @@ template:
              and has_value('input_select.kamin_holzart') }}
         state: >-
           {% set ziel = 22.0 %}
-          {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.85) %}
-          {% set lw = 0.85 if lernwert <= 0 else [lernwert, 0.15] | max %}
-          {% set lw = [lw, 1.2] | min %}
+          {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.6) %}
+          {% set lw = 0.6 if lernwert <= 0 else [lernwert, 0.15] | max %}
+          {% set lw = [lw, 0.6] | min %}
           {% set nacht_prognose = states('sensor.vorhersage_nacht_mittel') | float(5) %}
           {% set fehler = states('sensor.vorhersagefehler_letzte_nacht') | float(0) %}
           {% set nacht_effektiv = nacht_prognose + fehler %}
           {% set speicher_kwh = states('sensor.kachelofen_speicherenergie') | float(0) %}
           {% set diff = [ziel - nacht_effektiv, 0] | max %}
-          {% set grundbedarf = 8 + lw * diff %}
+          {% set grundbedarf = 6 + lw * diff %}
           {% set energie_benoetigt = grundbedarf * 4.0 %}
           {% set energie_fehlend = [energie_benoetigt - speicher_kwh, 0] | max %}
           {% set kg_buche = energie_fehlend / 4.0 %}
@@ -433,17 +443,17 @@ template:
             {% set speicher_kwh = states('sensor.kachelofen_speicherenergie') | float(0) %}
             {{ speicher_kwh | round(1) }} kWh
           energie_benoetigt: >
-            {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.85) %}
-            {% set lw = 0.85 if lernwert <= 0 else [lernwert, 0.15] | max %}
-            {% set lw = [lw, 1.2] | min %}
+            {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.6) %}
+            {% set lw = 0.6 if lernwert <= 0 else [lernwert, 0.15] | max %}
+            {% set lw = [lw, 0.6] | min %}
             {% set nacht_prognose = states('sensor.vorhersage_nacht_mittel') | float(5) %}
             {% set fehler = states('sensor.vorhersagefehler_letzte_nacht') | float(0) %}
             {% set diff = [22.0 - nacht_prognose - fehler, 0] | max %}
             {{ ((8 + lw * diff) * 4.0) | round(1) }} kWh
           energie_fehlend: >
-            {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.85) %}
-            {% set lw = 0.85 if lernwert <= 0 else [lernwert, 0.15] | max %}
-            {% set lw = [lw, 1.2] | min %}
+            {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0.6) %}
+            {% set lw = 0.6 if lernwert <= 0 else [lernwert, 0.15] | max %}
+            {% set lw = [lw, 0.6] | min %}
             {% set nacht_prognose = states('sensor.vorhersage_nacht_mittel') | float(5) %}
             {% set fehler = states('sensor.vorhersagefehler_letzte_nacht') | float(0) %}
             {% set diff = [22.0 - nacht_prognose - fehler, 0] | max %}
