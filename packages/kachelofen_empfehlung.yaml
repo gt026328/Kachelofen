@@ -34,9 +34,11 @@ template:
           {% endif %}
           {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0) %}
           {% set lw = 0.6 if lernwert <= 0 else [lernwert, 0.15] | max %}
-          {% set lw = [lw, 1.2] | min %}
+          {% set lw = [lw, 0.6] | min %}
           {% set C = 4 * lw %}
-          {% set G = lw * 4 / 12 %}
+          {% set rate = states('sensor.wohnzimmer_abkuehlrate') | float(0) %}
+          {% set dt_now = [states('sensor.greenhouse_temperatur') | float(20) - states('sensor.gw3000a_outdoor_temperature') | float(5), 1] | max %}
+          {% set G = ([rate | abs / dt_now, 0.05] | max) if rate < 0 else (lw * 4 / 12) %}
           {% set wind = states('sensor.gw3000a_wind_speed') | float(0) %}
           {% set G = G * (1 + wind / 100) %}
           {% set t_out = states('sensor.vorhersage_nacht_mittel') | float(states('sensor.gw3000a_outdoor_temperature') | float(5)) + states('sensor.vorhersagefehler_letzte_nacht') | float(0) %}
