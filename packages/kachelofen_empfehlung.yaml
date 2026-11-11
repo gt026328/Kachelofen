@@ -35,7 +35,7 @@ template:
           {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0) %}
           {% set lw = 0.6 if lernwert <= 0 else [lernwert, 0.15] | max %}
           {% set lw = [lw, 0.6] | min %}
-          {% set C = 4 * lw %}
+          {% set C = 40 %}  # effektive Waermekapazitaet Raum+Gebaeude in kWh/K (realistisch ~30-60, NICHT 4*lw)
           {% set rate = states('sensor.wohnzimmer_abkuehlrate') | float(0) %}
           {% set dt_now = [states('sensor.greenhouse_temperatur') | float(20) - states('sensor.gw3000a_outdoor_temperature') | float(5), 1] | max %}
           {% set G = ([rate | abs / dt_now, 0.1] | max) if rate < 0 else (lw * 4 / 12) %}
