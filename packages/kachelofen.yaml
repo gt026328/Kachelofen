@@ -140,6 +140,24 @@ sensor:
       hours: 12
     sampling_size: 400
 
+  - platform: statistics
+    name: "Abbranddauer Mittel 7d"
+    entity_id: sensor.kachelofen_zahler_letzte_abbranddauer
+    state_characteristic: mean
+    unit_of_measurement: "s"
+    max_age:
+      days: 7
+    sampling_size: 200
+
+  - platform: statistics
+    name: "Max Ofentemperatur Abbrand Mittel 7d"
+    entity_id: sensor.kachelofen_zahler_letzte_maximaltemperatur
+    state_characteristic: mean
+    unit_of_measurement: "°C"
+    max_age:
+      days: 7
+    sampling_size: 200
+
 # =====================================================================
 # TEMPLATE-SENSOREN
 # =====================================================================
@@ -176,6 +194,30 @@ template:
       - name: "Kachelofen Holzart letzter Abbrand"
         unique_id: kachelofen_holzart_letzte
         state: "{{ states('input_select.kamin_holzart') }}"
+
+  # =====================================================================
+  # 0b. WIRKUNGSGRAD-TREND: Korrelation Dauer <-> Maximaltemperatur (7d)
+  # =====================================================================
+  - trigger:
+      - platform: time_pattern
+        minutes: "/30"
+    sensor:
+      - name: "Abbrand Wirkungsgrad Trend"
+        unique_id: kachelofen_wirkungsgrad_trend
+        unit_of_measurement: "°C/h"
+        icon: mdi:gauge
+        state: >-
+          {% set dauer_s = states('sensor.abbranddauer_mittel_7d') | float(0) %}
+          {% set tmax = states('sensor.max_ofentemperatur_abbrand_mittel_7d') | float(0) %}
+          {% if dauer_s > 0 %}
+            {{ (tmax / (dauer_s / 3600)) | round(2) }}
+          {% else %}
+            {{ this.state | default(0) }}
+          {% endif %}
+        attributes:
+          dauer_mittel_h: "{{ (states('sensor.abbranddauer_mittel_7d') | float(0) / 3600) | round(2) }} h"
+          maxtemp_mittel: "{{ states('sensor.max_ofentemperatur_abbrand_mittel_7d') | float(0) | round(1) }} °C"
+          bedeutung: "°C Maximaltemperatur pro Abbrandstunde - höher = effizienterer Abbrand"
 
   # =====================================================================
   # 1b. KUMULATIVER ENERGIEZÄHLER (total_increasing - zählt selbst hoch)
