@@ -190,17 +190,27 @@ template:
         entity_id: binary_sensor.kachelofen_zahler_ofen_brennt
         from: "on"
         to: "off"
-        for: "00:30:00"
+        for: "00:45:00"
     sensor:
       - name: "Kachelofen Holzmenge letzter Abbrand"
         unique_id: kachelofen_holzmenge_letzte
         unit_of_measurement: "kg"
         state_class: measurement
-        state: "{{ states('input_number.kamin_holzmenge') | float(0) }}"
+        state: >-
+          {% if states('sensor.kachelofen_zahler_kachelofen_temperatur') | float(999) < 90 %}
+            {{ states('input_number.kamin_holzmenge') | float(0) }}
+          {% else %}
+            {{ this.state }}
+          {% endif %}
 
       - name: "Kachelofen Holzart letzter Abbrand"
         unique_id: kachelofen_holzart_letzte
-        state: "{{ states('input_select.kamin_holzart') }}"
+        state: >-
+          {% if states('sensor.kachelofen_zahler_kachelofen_temperatur') | float(999) < 90 %}
+            {{ states('input_select.kamin_holzart') }}
+          {% else %}
+            {{ this.state }}
+          {% endif %}
 
   # =====================================================================
   # 1b. KUMULATIVER ENERGIEZÄHLER (total_increasing - zählt selbst hoch)
@@ -210,7 +220,7 @@ template:
         entity_id: binary_sensor.kachelofen_zahler_ofen_brennt
         from: "on"
         to: "off"
-        for: "00:30:00"
+        for: "00:45:00"
     sensor:
       - name: "Kachelofen Warmemenge kumulativ"
         unique_id: kachelofen_warmemenge_kumulativ_sensor
@@ -219,11 +229,15 @@ template:
         state_class: total_increasing
         icon: mdi:fire
         state: >-
-          {% set alt = this.state | float(0) %}
-          {% set menge = states('input_number.kamin_holzmenge') | float(0) %}
-          {% set art = states('input_select.kamin_holzart') | default('Buche', true) %}
-          {% set hw = {'Buche': 4.0, 'Eiche': 4.0, 'Esche': 4.0, 'Birke': 4.1, 'Fichte': 4.3, 'Kiefer': 4.3}.get(art, 4.0) %}
-          {{ (alt + menge * hw) | round(2) }}
+          {% if states('sensor.kachelofen_zahler_kachelofen_temperatur') | float(999) < 90 %}
+            {% set alt = this.state | float(0) %}
+            {% set menge = states('input_number.kamin_holzmenge') | float(0) %}
+            {% set art = states('input_select.kamin_holzart') | default('Buche', true) %}
+            {% set hw = {'Buche': 4.0, 'Eiche': 4.0, 'Esche': 4.0, 'Birke': 4.1, 'Fichte': 4.3, 'Kiefer': 4.3}.get(art, 4.0) %}
+            {{ (alt + menge * hw) | round(2) }}
+          {% else %}
+            {{ this.state }}
+          {% endif %}
 
   # =====================================================================
   # 2. 07:00 UHR: NACHTWERTE EINFRIEREN
