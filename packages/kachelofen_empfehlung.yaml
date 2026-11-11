@@ -36,7 +36,9 @@ template:
           {% set lw = 0.6 if lernwert <= 0 else [lernwert, 0.15] | max %}
           {% set lw = [lw, 0.6] | min %}
           {% set C = 4 * lw %}
-          {% set G = lw * 4 / 12 %}
+          {% set rate = states('sensor.wohnzimmer_abkuehlrate') | float(0) %}
+          {% set dt_now = [states('sensor.greenhouse_temperatur') | float(20) - states('sensor.gw3000a_outdoor_temperature') | float(5), 1] | max %}
+          {% set G = ([rate | abs / dt_now, 0.05] | max) if rate < 0 else (lw * 4 / 12) %}
           {% set wind = states('sensor.gw3000a_wind_speed') | float(0) %}
           {% set G = G * (1 + wind / 100) %}
           {% set t_out = states('sensor.vorhersage_nacht_mittel') | float(states('sensor.gw3000a_outdoor_temperature') | float(5)) + states('sensor.vorhersagefehler_letzte_nacht') | float(0) %}
@@ -90,9 +92,17 @@ template:
           {% set nacht_bedarf = lw * [ziel - tagesmittel, 0] | max %}
           {% set aufheizbedarf = [ziel - t_ist, 0] | max * 0.5 %}
           {% set speicher_kwh = states('sensor.kachelofen_speicherenergie') | float(0) %}
-          {% set rabatt_kg = [speicher_kwh / 4, 6] | min %}
-          {% set kg = grundbedarf + nacht_bedarf + aufheizbedarf - rabatt_kg %}
-          {{ [((kg / 0.5) | round(0) * 0.5), 0] | max }}
+          {% set bedarf_kwh = lw * ([ziel - tagesmittel, 0] | max) * 4 %}
+          {% if t_ist >= ziel and (tagesmittel >= ziel - 2 or speicher_kwh >= bedarf_kwh) %}
+            0
+          {% else %}
+            {% set grundbedarf = 4 %}
+            {% set nacht_bedarf = lw * [ziel - tagesmittel, 0] | max %}
+            {% set aufheizbedarf = ([ziel - t_ist, 0] | max) * 0.5 %}
+            {% set rabatt_kg = [speicher_kwh / 4, 6] | min %}
+            {% set kg = grundbedarf + nacht_bedarf + aufheizbedarf - rabatt_kg %}
+            {{ [([(kg / 0.5) | round(0) * 0.5, 12] | min), 0] | max }}
+          {% endif %}
         attributes:
           empfehlung: >
             {% set this_state = this.state | float(0) %}
