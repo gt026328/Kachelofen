@@ -77,7 +77,7 @@ template:
       - platform: state
         entity_id:
           - sensor.vorhersage_bis_19_uhr_mittel
-          - sensor.abkuehlrate_nacht_ist
+          - sensor.abkuehlrate_letzte_nacht_ist
           - sensor.kachelofen_lernwert_kg_pro_grad
           - sensor.kachelofen_speicherenergie
           - sensor.vorhersagefehler_letzte_nacht
@@ -100,7 +100,7 @@ template:
           {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0) %}
           {% set lw = 0.6 if lernwert <= 0 else [lernwert, 0.15] | max %}
           {% set lw = [lw, 0.6] | min %}
-          {% set rate_ist = states('sensor.abkuehlrate_nacht_ist') | float(0) | abs %}
+          {% set rate_ist = states('sensor.abkuehlrate_letzte_nacht_ist') | float(0) | abs %}
           {% set t_vor = states('sensor.raumtemperatur_vor_abbrand') | float(t_ist) %}
           {% set t_out_nacht = states('sensor.aussentemperatur_letzte_nacht_ist') | float(0) %}
           {% set rate_modell = lw * 4 * ([t_vor - t_out_nacht, 1] | max) / 480 %}
@@ -137,7 +137,7 @@ template:
             {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0) %}
             {% set lw = 0.6 if lernwert <= 0 else [lernwert, 0.15] | max %}
             {% set lw = [lw, 0.6] | min %}
-            {% set rate_ist = states('sensor.abkuehlrate_nacht_ist') | float(0) | abs %}
+            {% set rate_ist = states('sensor.abkuehlrate_letzte_nacht_ist') | float(0) | abs %}
             {% set t_vor = states('sensor.raumtemperatur_vor_abbrand') | float(21) %}
             {% set t_out_nacht = states('sensor.aussentemperatur_letzte_nacht_ist') | float(0) %}
             {% set rate_modell = lw * 4 * ([t_vor - t_out_nacht, 1] | max) / 480 %}
@@ -146,7 +146,7 @@ template:
             {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0) %}
             {% set lw = 0.6 if lernwert <= 0 else [lernwert, 0.15] | max %}
             {% set lw = [lw, 0.6] | min %}
-            {% set rate_ist = states('sensor.abkuehlrate_nacht_ist') | float(0) | abs %}
+            {% set rate_ist = states('sensor.abkuehlrate_letzte_nacht_ist') | float(0) | abs %}
             {% set t_vor = states('sensor.raumtemperatur_vor_abbrand') | float(21) %}
             {% set t_out_nacht = states('sensor.aussentemperatur_letzte_nacht_ist') | float(0) %}
             {% set rate_modell = lw * 4 * ([t_vor - t_out_nacht, 1] | max) / 480 %}
@@ -159,7 +159,7 @@ template:
             {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0) %}
             {% set lw = 0.6 if lernwert <= 0 else [lernwert, 0.15] | max %}
             {% set lw = [lw, 0.6] | min %}
-            {% set rate_ist = states('sensor.abkuehlrate_nacht_ist') | float(0) | abs %}
+            {% set rate_ist = states('sensor.abkuehlrate_letzte_nacht_ist') | float(0) | abs %}
             {% set t_vor = states('sensor.raumtemperatur_vor_abbrand') | float(21) %}
             {% set t_out_nacht = states('sensor.aussentemperatur_letzte_nacht_ist') | float(0) %}
             {% set rate_modell = lw * 4 * ([t_vor - t_out_nacht, 1] | max) / 480 %}
