@@ -513,7 +513,7 @@ template:
           {{ has_value('sensor.kachelofen_zahler_kachelofen_temperatur')
              and has_value('sensor.greenhouse_temperatur') }}
         state: >
-          {% set masse = 500 %}
+          {% set masse = 600 %}
           {% set c = 0.9 %}
           {% set f = 0.7 %}
           {% set t_ofen = states('sensor.kachelofen_zahler_kachelofen_temperatur') | float(20) %}
@@ -521,7 +521,7 @@ template:
           {% set delta = [t_ofen - t_raum, 0] | max %}
           {{ ((masse * c * f * delta) / 1000) | round(1) }}
         attributes:
-          masse_schamott_kg: 500
+          masse_schamott_kg: 600
           einhuellungsfaktor: 0.7
           sensor_position: "Deckstein, 3 cm ueber Abgasschamott"
           kalibrierhinweis: "Speicher sollte 30-50% der verfeuerten kWh betragen"
