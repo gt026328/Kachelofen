@@ -341,7 +341,7 @@ template:
         unit_of_measurement: "°C"
         state_class: measurement
         state: >-
-          {% if trigger.platform == 'time' or now().hour >= 17 %}
+          {% if trigger is defined and (trigger.platform == 'time' or now().hour >= 17) %}
             {{ states('sensor.greenhouse_temperatur') | float(20) | round(1) }}
           {% else %}
             {{ this.state }}
