@@ -326,17 +326,26 @@ template:
           bedeutung: "positiv = waermer als prognostiziert, negativ = kaelter"
 
   # =====================================================================
-  # 2b. 18:55 UHR: TAGWERTE VOR DEM ABENDABBRAND EINFRIEREN
+  # 2b. TAGWERTE VOR DEM ABENDABBRAND EINFRIEREN (17:55 ODER BEI ABEND-ANZUENDEN)
   # =====================================================================
   - trigger:
       - platform: time
-        at: "18:55:00"
+        at: "17:55:00"
+      - platform: state
+        entity_id: binary_sensor.kachelofen_zahler_ofen_brennt
+        from: "off"
+        to: "on"
     sensor:
       - name: "Raumtemperatur vor Abendabbrand"
         unique_id: raumtemp_vor_abendabbrand
         unit_of_measurement: "°C"
         state_class: measurement
-        state: "{{ states('sensor.greenhouse_temperatur') | float(20) | round(1) }}"
+        state: >-
+          {% if trigger is defined and (trigger.platform == 'time' or now().hour >= 17) %}
+            {{ states('sensor.greenhouse_temperatur') | float(20) | round(1) }}
+          {% else %}
+            {{ this.state }}
+          {% endif %}
         attributes:
           raumtemp_morgen: "{{ states('sensor.raumtemperatur_morgen') }} °C"
           verlust_ueber_tag: >-
