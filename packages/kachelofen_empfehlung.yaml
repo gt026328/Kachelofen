@@ -69,6 +69,83 @@ template:
           stunden_bis_7: "{{ [((7 - now().hour - now().minute / 60) % 24), 1] | max | round(1) }} h"
 
   # =====================================================================
+  # 11b. PROGNOSE RAUMTEMP 19 UHR (ERSTELLT 07:05, SZENARIO: KEIN WEITERER ABBRAND)
+  # =====================================================================
+  - trigger:
+      - platform: time
+        at: "07:05:00"
+    sensor:
+      - name: "Prognose Raumtemp 19 Uhr vom Morgen"
+        unique_id: prognose_raumtemp_19_uhr_vom_morgen
+        unit_of_measurement: "°C"
+        state_class: measurement
+        icon: mdi:weather-sunset-down
+        availability: >-
+          {{ has_value('sensor.greenhouse_temperatur')
+             and has_value('sensor.kachelofen_speicherenergie') }}
+        state: >-
+          {% set t_start = states('sensor.greenhouse_temperatur') | float(20) %}
+          {% set t_out = states('sensor.vorhersage_bis_19_uhr_mittel') | float(states('sensor.vorhersage_tag_mittel') | float(5)) + states('sensor.vorhersagefehler_letzte_nacht') | float(0) %}
+          {% set h = 12 %}
+          {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0) %}
+          {% set lw = 0.6 if lernwert <= 0 else [lernwert, 0.15] | max %}
+          {% set lw = [lw, 0.6] | min %}
+          {% set rate_ist = states('sensor.abkuehlrate_letzte_nacht_ist') | float(0) | abs %}
+          {% set t_vor = states('sensor.raumtemperatur_vor_abbrand') | float(t_start) %}
+          {% set t_out_nacht = states('sensor.aussentemperatur_letzte_nacht_ist') | float(0) %}
+          {% set rate_modell = lw * 4 * ([t_vor - t_out_nacht, 1] | max) / 480 %}
+          {% set faktor = ([[rate_ist / rate_modell, 0.5] | max, 2] | min) if rate_modell > 0 and rate_ist > 0 else 1 %}
+          {% set G = lw * 4 / 12 * faktor %}
+          {% set C = 40 %}
+          {% set e_speicher = states('sensor.kachelofen_speicherenergie') | float(0) %}
+          {% set P = e_speicher / h %}
+          {% set t_eq = t_out + P / G %}
+          {% set tau = C / G %}
+          {% set t_19 = t_eq + (t_start - t_eq) * 2.71828 ** (-(h / tau)) %}
+          {% set ziel = states('input_number.kachelofen_zieltemperatur') | float(22) %}
+          {{ [t_19, ziel + 5] | min | round(1) }}
+        attributes:
+          erstellt_um: "07:05 Uhr (nach Einfrieren der 07:00-Werte)"
+          szenario: "kein weiterer Abbrand bis 19 Uhr - nur Ofen-Restwaerme"
+          t_start: "{{ states('sensor.greenhouse_temperatur') | float(20) | round(1) }} °C"
+          aussentemp_prognose_bis_19: "{{ states('sensor.vorhersage_bis_19_uhr_mittel') | float(0) | round(1) }} °C"
+          speicherenergie: "{{ states('sensor.kachelofen_speicherenergie') | float(0) | round(1) }} kWh"
+          abkuehlfaktor_letzte_nacht: >-
+            {% set lernwert = states('sensor.kachelofen_lernwert_kg_pro_grad') | float(0) %}
+            {% set lw = 0.6 if lernwert <= 0 else [lernwert, 0.15] | max %}
+            {% set lw = [lw, 0.6] | min %}
+            {% set rate_ist = states('sensor.abkuehlrate_letzte_nacht_ist') | float(0) | abs %}
+            {% set t_vor = states('sensor.raumtemperatur_vor_abbrand') | float(21) %}
+            {% set t_out_nacht = states('sensor.aussentemperatur_letzte_nacht_ist') | float(0) %}
+            {% set rate_modell = lw * 4 * ([t_vor - t_out_nacht, 1] | max) / 480 %}
+            {{ (([[rate_ist / rate_modell, 0.5] | max, 2] | min) if rate_modell > 0 and rate_ist > 0 else 1) | round(2) }}
+
+  # =====================================================================
+  # 11c. PROGNOSEFEHLER TAG (PROGNOSE VOM MORGEN VS. IST UM 18:55)
+  # =====================================================================
+  - trigger:
+      - platform: time
+        at: "19:05:00"
+      - platform: state
+        entity_id:
+          - sensor.prognose_raumtemp_19_uhr_vom_morgen
+    sensor:
+      - name: "Prognosefehler Tag 19 Uhr"
+        unique_id: vorhersagefehler_tag_19_uhr
+        unit_of_measurement: "K"
+        state_class: measurement
+        availability: >-
+          {{ has_value('sensor.prognose_raumtemp_19_uhr_vom_morgen')
+             and has_value('sensor.raumtemperatur_vor_abendabbrand') }}
+        state: >-
+          {{ (states('sensor.raumtemperatur_vor_abendabbrand') | float(0)
+              - states('sensor.prognose_raumtemp_19_uhr_vom_morgen') | float(0)) | round(1) }}
+        attributes:
+          bedeutung: "positiv = waermer als prognostiziert, negativ = kaelter"
+          prognose_vom_morgen: "{{ states('sensor.prognose_raumtemp_19_uhr_vom_morgen') | float(0) | round(1) }} °C"
+          ist_18_55: "{{ states('sensor.raumtemperatur_vor_abendabbrand') | float(0) | round(1) }} °C"
+
+  # =====================================================================
   # 12. MORGENEMPFEHLUNG (NEU: energiebasiert bis 19 Uhr Abend-Abbrand)
   # =====================================================================
   - trigger:
