@@ -26,10 +26,10 @@ Nach dem Kopieren: Entwicklerwerkzeuge -> YAML -> "Alle YAML-Konfiguration neu l
 
 ### Dashboard (Lovelace)
 
-`dashboards/kachelofen-dashboard.yaml` ist **kein Package** und darf NICHT nach
+`dashboards/kachelofen_dashboard.yaml` ist **kein Package** und darf NICHT nach
 `config/packages/` kopiert werden – auch nicht in einen Unterordner davon. Liegt die
-Datei unter `packages/`, bricht HA mit `invalid slug kachelofen-dashboard` ab
-(Package-Namen duerfen keinen Bindestrich enthalten).
+Datei unter `packages/`, bricht HA mit `invalid slug kachelofen_dashboard` ab:
+**Dateinamen duerfen keinen Bindestrich (-) enthalten, nur Unterstrich (_)**.
 
 Einbinden stattdessen als Lovelace-Dashboard im YAML-Modus:
 
@@ -41,10 +41,13 @@ lovelace:
     kachelofen-dashboard:   # Url-Pfad MUSS einen Bindestrich enthalten, sonst: "Url path needs to contain a hyphen (-)"
       mode: yaml
       title: Kachelofen
-      filename: dashboards/kachelofen-dashboard.yaml
+      filename: dashboards/kachelofen_dashboard.yaml
 ```
 
-Datei nach `config/dashboards/kachelofen-dashboard.yaml` kopieren (nicht nach
+Datei nach `config/dashboards/kachelofen_dashboard.yaml` kopieren (nicht nach
 `config/packages/`!) und Home Assistant **neu starten** (kein YAML-Reload genuegt
 bei Aenderungen an `lovelace.dashboards`). Alternativ im UI ein Dashboard anlegen und
 den Inhalt der Datei ueber den YAML-Editor einfuegen.
+
+Merksatz: **Dateiname = Unterstrich** (`kachelofen_dashboard.yaml`), **URL-Pfad-Key
+in `lovelace.dashboards` = Bindestrich** (`kachelofen-dashboard`).
