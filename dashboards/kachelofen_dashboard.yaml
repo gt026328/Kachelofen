@@ -61,6 +61,45 @@ views:
           state_attr('sensor.kachelofen_morgenempfehlung_holzmenge',
           'begruendung') }}
       - type: entities
+        title: Morgenempfehlung – Details
+        entities:
+          - entity: sensor.kachelofen_morgenempfehlung_holzmenge
+            name: Holzmenge
+            attributes:
+              - aussentemp_prognose_bis_19
+              - stunden_bis_19
+              - verlustenergie_bis_19
+              - aufheizbedarf
+              - speicherrest
+              - rabatt_durch_speicher
+              - abkuehlfaktor_letzte_nacht
+              - lernwert_verwendet
+              - holzart
+              - heizwert
+      - type: entities
+        title: Letzter Abbrand im Detail
+        entities:
+          - entity: sensor.kachelofen_holzmenge_letzter_abbrand
+            name: Holzmenge letzter Abbrand
+          - entity: sensor.kachelofen_holzart_letzter_abbrand
+            name: Holzart letzter Abbrand
+          - entity: sensor.warmemenge_letzter_abbrand
+            name: Energie letzter Abbrand
+          - entity: sensor.maximal_temperatur_letzter_abbrand
+            name: Max-Temperatur letzter Abbrand
+          - entity: sensor.raumtemperatur_vor_abbrand
+            name: Raumtemp vor letztem Abbrand
+          - entity: sensor.kachelofen_abbrand_start_stunde
+            name: Abbrand-Start (Stunde)
+          - entity: sensor.letzter_abbrandende
+            name: Letzter Abbrandende
+          - entity: sensor.abbranddauer_mittel_7d
+            name: Ø Abbranddauer 7d
+          - entity: sensor.max_temperatur_abbrand_mittel_7d
+            name: Ø Max-Temp 7d
+          - entity: sensor.abbrand_wirkungsgrad_trend
+            name: Wirkungsgrad-Trend
+      - type: entities
         title: Empfehlungen im Vergleich
         entities:
           - entity: sensor.kachelofen_holzmenge_empfehlung_gelernt
@@ -147,6 +186,7 @@ views:
         title: Temperaturverlauf 24 h
         hours_to_show: 24
         entities:
+          - sensor.wohnzimmer_temperatur_mit_backup
           - sensor.greenhouse_temperatur
           - sensor.gw3000a_outdoor_temperature
           - sensor.kachelofen_zahler_kachelofen_temperatur
@@ -174,6 +214,8 @@ views:
         title: Speicher-Übersicht
         entities:
           - entity: input_number.speicherenergie_7_uhr
+          - entity: sensor.speicherenergie_um_7_00_uhr
+            name: Speicherenergie um 07:00
           - entity: sensor.speicherenergie_verbrauch_7_12_uhr_theoretisch
           - entity: sensor.kachelofen_speicherenergie
       - type: markdown
@@ -434,3 +476,9 @@ views:
             name: Abkühlrate Ofen (Zähler)
           - entity: sensor.kachelofen_abkuhlkoeffizient
             name: Abkühlkoeffizient
+          - entity: sensor.wind_korrekturfaktor
+            name: Wind-Korrekturfaktor
+          - entity: sensor.aufwaermrate_wohnzimmer_tag
+            name: Aufwärmrate Wohnzimmer (Tag)
+          - entity: sensor.fenster_ost_oberflaechentemperatur
+            name: Fensteroberflächentemp (Ost)
