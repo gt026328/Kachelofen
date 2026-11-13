@@ -145,6 +145,9 @@ template:
           prognose_vom_morgen: "{{ states('sensor.prognose_raumtemp_19_uhr_vom_morgen') | float(0) | round(1) }} °C"
           ist_18_55: "{{ states('sensor.raumtemperatur_vor_abendabbrand') | float(0) | round(1) }} °C"
           morgen_abbrand_heute: "{{ states('sensor.morgen_abbrand_heute') }} (ja = heute vor 12 Uhr angezündet, Szenario 'kein weiterer Abbrand' verletzt - Fehler dann positiv verzerrt)"
+          gueltig: >-
+            {% set m = states('sensor.morgen_abbrand_heute') %}
+            {% if m == 'nein' %}ja{% elif m == 'ja' %}nein{% else %}unbekannt{% endif %}
 
   # =====================================================================
   # 11d. MORGEN-ABBRAND HEUTE (JA/NEIN - ZUORDNUNG DES PROGNOSEFEHLERS)
@@ -161,9 +164,9 @@ template:
         unique_id: morgen_abbrand_heute
         icon: mdi:fire-clock
         state: >-
-          {% if trigger.platform == 'time' %}
+          {% if trigger is defined and trigger.platform == 'time' %}
             nein
-          {% elif now().hour < 12 %}
+          {% elif trigger is defined and now().hour < 12 %}
             ja
           {% else %}
             {{ this.state }}
