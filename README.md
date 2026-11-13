@@ -31,14 +31,20 @@ Nach dem Kopieren: Entwicklerwerkzeuge -> YAML -> "Alle YAML-Konfiguration neu l
 Datei unter `packages/`, bricht HA mit `invalid slug kachelofen-dashboard` ab
 (Package-Namen duerfen keinen Bindestrich enthalten).
 
-Einbinden stattdessen als Lovelace-Dashboard im YAML-Modus:
+Einbinden stattdessen als Lovelace-Dashboard im YAML-Modus (ab HA 2026.8: `mode: yaml` steht nicht mehr direkt unter `lovelace:`, sondern `resource_mode: yaml` – sonst bricht die Konfiguration beim Upgrade):
 
 ```yaml
 # configuration.yaml
 lovelace:
-  mode: yaml
+  resource_mode: yaml          # ab HA 2026.8 Pflicht statt "mode: yaml" unter lovelace:
   dashboards:
-    kachelofen-dashboard:   # Url-Pfad MUSS einen Bindestrich enthalten, sonst: "Url path needs to contain a hyphen (-)"
+    lovelace:                  # Standard-Dashboard (ab 2026.8 explizit deklarieren)
+      mode: yaml
+      filename: ui-lovelace.yaml
+      title: Overview
+      icon: mdi:view-dashboard
+      show_in_sidebar: true
+    kachelofen-dashboard:      # Url-Pfad MUSS einen Bindestrich enthalten, sonst: "Url path needs to contain a hyphen (-)"
       mode: yaml
       title: Kachelofen
       filename: dashboards/kachelofen_dashboard.yaml
