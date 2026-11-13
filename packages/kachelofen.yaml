@@ -325,6 +325,25 @@ template:
         attributes:
           bedeutung: "positiv = waermer als prognostiziert, negativ = kaelter"
 
+  # =====================================================================
+  # 2b. 18:55 UHR: TAGWERTE VOR DEM ABENDABBRAND EINFRIEREN
+  # =====================================================================
+  - trigger:
+      - platform: time
+        at: "18:55:00"
+    sensor:
+      - name: "Raumtemperatur vor Abendabbrand"
+        unique_id: raumtemp_vor_abendabbrand
+        unit_of_measurement: "°C"
+        state_class: measurement
+        state: "{{ states('sensor.greenhouse_temperatur') | float(20) | round(1) }}"
+        attributes:
+          raumtemp_morgen: "{{ states('sensor.raumtemperatur_morgen') }} °C"
+          verlust_ueber_tag: >-
+            {{ (states('sensor.raumtemperatur_morgen') | float(22)
+                - states('sensor.greenhouse_temperatur') | float(20)) | round(1) }} K
+          vor_letztem_abbrand: "{{ states('sensor.raumtemperatur_vor_abbrand') }} °C"
+
   - trigger:
       - platform: time
         at: "07:00:00"
