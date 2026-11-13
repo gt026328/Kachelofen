@@ -144,6 +144,30 @@ template:
           bedeutung: "positiv = waermer als prognostiziert, negativ = kaelter"
           prognose_vom_morgen: "{{ states('sensor.prognose_raumtemp_19_uhr_vom_morgen') | float(0) | round(1) }} °C"
           ist_18_55: "{{ states('sensor.raumtemperatur_vor_abendabbrand') | float(0) | round(1) }} °C"
+          morgen_abbrand_heute: "{{ states('sensor.morgen_abbrand_heute') }} (ja = heute vor 12 Uhr angezündet, Szenario 'kein weiterer Abbrand' verletzt - Fehler dann positiv verzerrt)"
+
+  # =====================================================================
+  # 11d. MORGEN-ABBRAND HEUTE (JA/NEIN - ZUORDNUNG DES PROGNOSEFEHLERS)
+  # =====================================================================
+  - trigger:
+      - platform: time
+        at: "00:05:00"
+      - platform: state
+        entity_id: binary_sensor.kachelofen_zahler_ofen_brennt
+        from: "off"
+        to: "on"
+    sensor:
+      - name: "Morgen Abbrand heute"
+        unique_id: morgen_abbrand_heute
+        icon: mdi:fire-clock
+        state: >-
+          {% if trigger.platform == 'time' %}
+            nein
+          {% elif now().hour < 12 %}
+            ja
+          {% else %}
+            {{ this.state }}
+          {% endif %}
 
   # =====================================================================
   # 12. MORGENEMPFEHLUNG (NEU: energiebasiert bis 19 Uhr Abend-Abbrand)
