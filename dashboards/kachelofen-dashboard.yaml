@@ -104,7 +104,7 @@ views:
       - type: entities
         title: 🔥 Abend-Empfehlung (19:00 Abbrand)
         entities:
-          - entity: sensor.holzmenge_f_r_22_c_morgen_07_00_19_00_abbrand
+          - entity: sensor.holzmenge_fur_22c_morgen_07_00_19_00_abbrand
             name: Holzmenge für 22 °C morgen 07:00
             attributes:
               - nacht_prognose
