@@ -79,19 +79,19 @@ views:
       - type: entities
         title: Letzter Abbrand im Detail
         entities:
-          - entity: sensor.kachelofen_holzmenge_letzter_abbrand
+          - entity: input_number.kachelofen_holzmenge_letzter_abbrand
             name: Holzmenge letzter Abbrand
           - entity: sensor.kachelofen_holzart_letzter_abbrand
             name: Holzart letzter Abbrand
-          - entity: sensor.warmemenge_letzter_abbrand
+          - entity: input_number.kachelofen_warmemenge_letzter_abbrand
             name: Energie letzter Abbrand
-          - entity: sensor.maximal_temperatur_letzter_abbrand
+          - entity: input_number.kachelofen_max_temp_letzter_abbrand
             name: Max-Temperatur letzter Abbrand
           - entity: sensor.raumtemperatur_vor_abbrand
             name: Raumtemp vor letztem Abbrand
           - entity: sensor.kachelofen_abbrand_start_stunde
             name: Abbrand-Start (Stunde)
-          - entity: sensor.letzter_abbrandende
+          - entity: input_datetime.kachelofen_letzter_abbrand_ende
             name: Letzter Abbrandende
           - entity: sensor.abbranddauer_mittel_7d
             name: Ø Abbranddauer 7d
@@ -214,7 +214,6 @@ views:
         title: Speicher-Übersicht
         entities:
           - entity: input_number.speicherenergie_7_uhr
-          - entity: sensor.speicherenergie_um_7_00_uhr
             name: Speicherenergie um 07:00
           - entity: sensor.speicherenergie_verbrauch_7_12_uhr_theoretisch
           - entity: sensor.kachelofen_speicherenergie
@@ -359,19 +358,19 @@ views:
       - type: entities
         title: Letzter Abbrand – Visitenkarte
         entities:
-          - entity: sensor.kachelofen_holzmenge_letzter_abbrand
+          - entity: input_number.kachelofen_holzmenge_letzter_abbrand
             name: Holzmenge letzter Abbrand
           - entity: sensor.kachelofen_holzart_letzter_abbrand
             name: Holzart
-          - entity: sensor.kachelofen_warmemenge_kumulativ
+          - entity: input_number.kachelofen_warmemenge_kumulativ
             name: Gesamtenergie seit Inbetriebnahme
           - entity: sensor.kachelofen_zahler_letzte_maximaltemperatur
             name: Maximaltemperatur letzter Brand
       - type: history-graph
         entities:
           - entity: sensor.kachelofen_energie_aktueller_abbrand
-          - sensor.kachelofen_holzmenge_letzter_abbrand
-          - sensor.kachelofen_warmemenge_kumulativ
+          - input_number.kachelofen_holzmenge_letzter_abbrand
+          - input_number.kachelofen_warmemenge_kumulativ
         title: Verbrauch (30 Tage)
         hours_to_show: 720
       - type: entities
@@ -476,9 +475,9 @@ views:
             name: Abkühlrate Ofen (Zähler)
           - entity: sensor.kachelofen_abkuhlkoeffizient
             name: Abkühlkoeffizient
-          - entity: sensor.wind_korrekturfaktor
+          - entity: input_number.kachelofen_wind_kalibrierung
             name: Wind-Korrekturfaktor
           - entity: sensor.aufwaermrate_wohnzimmer_tag
             name: Aufwärmrate Wohnzimmer (Tag)
-          - entity: sensor.fenster_ost_oberflaechentemperatur
+          - entity: sensor.fenster_ost_oberflachentemperatur
             name: Fensteroberflächentemp (Ost)
