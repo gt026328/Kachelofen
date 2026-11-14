@@ -230,15 +230,15 @@ template:
         unit_of_measurement: "°C/h"
         icon: mdi:gauge
         state: >-
-          {% set dauer_s = states('sensor.abbranddauer_mittel_7d') | float(0) %}
+          {% set dauer_min = states('sensor.abbranddauer_mittel_7d') | float(0) %}
           {% set tmax = states('sensor.max_ofentemperatur_abbrand_mittel_7d') | float(0) %}
-          {% if dauer_s > 0 %}
-            {{ (tmax / (dauer_s / 3600)) | round(2) }}
+          {% if dauer_min > 0 %}
+            {{ (tmax / (dauer_min / 60)) | round(2) }}
           {% else %}
             {{ this.state | default(0) }}
           {% endif %}
         attributes:
-          dauer_mittel_h: "{{ (states('sensor.abbranddauer_mittel_7d') | float(0) / 3600) | round(2) }} h"
+          dauer_mittel_h: "{{ (states('sensor.abbranddauer_mittel_7d') | float(0) / 60) | round(2) }} h"
           maxtemp_mittel: "{{ states('sensor.max_ofentemperatur_abbrand_mittel_7d') | float(0) | round(1) }} °C"
           bedeutung: "°C Maximaltemperatur pro Abbrandstunde - höher = effizienterer Abbrand"
 
