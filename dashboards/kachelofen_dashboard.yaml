@@ -419,9 +419,9 @@ views:
         entities:
           - entity: sensor.fenster_ost_dt_zu_raumluft
             name: ΔT Fenster ↔ Raumluft
-          - entity: sensor.fenster_ost_waermeverlust_index
+          - entity: sensor.fenster_ost_warmeverlust_index
             name: Verlustindex (5 = sehr gut)
-          - entity: sensor.fenster_ost_waermeverlust_windkorrigiert
+          - entity: sensor.fenster_ost_warmeverlust_windkorrigiert
             name: Windkorrigiert
           - entity: sensor.fenster_ost_u_wert_schaetzung
             name: U-Wert-Schätzung (W/m²K)

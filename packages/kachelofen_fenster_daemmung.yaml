@@ -32,7 +32,7 @@ template:
           {% set raum = states('sensor.greenhouse_temperatur') | float(0) %}
           {{ (raum - fenster) | round(1) }}
 
-      - name: "Fenster Ost Waermeverlust Index"
+      - name: "Fenster Ost Wärmeverlust Index"
         unique_id: fenster_ost_waermeverlust_index
         unit_of_measurement: "Index (1-5)"
         state_class: measurement
@@ -49,7 +49,7 @@ template:
           {% endif %}
         attributes:
           bewertung: >
-            {% set idx = states('sensor.fenster_ost_waermeverlust_index') | int(0) %}
+            {% set idx = states('sensor.fenster_ost_warmeverlust_index') | int(0) %}
             {% if idx == 5 %} sehr gut
             {% elif idx == 4 %} gut
             {% elif idx == 3 %} durchschnittlich
@@ -57,7 +57,7 @@ template:
             {% else %} schlecht
             {% endif %}
 
-      - name: "Fenster Ost Waermeverlust windkorrigiert"
+      - name: "Fenster Ost Wärmeverlust windkorrigiert"
         unique_id: fenster_ost_warmeverlust_windkorrigiert
         unit_of_measurement: "Index (1-5)"
         state_class: measurement

@@ -148,7 +148,7 @@ automation:
     id: warnung_hoher_fenster_warmeverlust
     triggers:
       - trigger: numeric_state
-        entity_id: sensor.fenster_ost_waermeverlust_index
+        entity_id: sensor.fenster_ost_warmeverlust_index
         below: 3
         for: "00:30:00"
     conditions:
@@ -160,7 +160,7 @@ automation:
         data:
           title: "⚠️ Hoher Waermeverlust am Ostfenster!"
           message: >-
-            {% set idx = states('sensor.fenster_ost_waermeverlust_index') | int(0) %}
+            {% set idx = states('sensor.fenster_ost_warmeverlust_index') | int(0) %}
             {% set bewertung = {
               1: 'schlecht',
               2: 'verbesserungsbeduerftig',
@@ -179,7 +179,7 @@ automation:
         data:
           title: "⚠️ Hoher Waermeverlust am Ostfenster!"
           message: >-
-            {% set idx = states('sensor.fenster_ost_waermeverlust_index') | int(0) %}
+            {% set idx = states('sensor.fenster_ost_warmeverlust_index') | int(0) %}
             {% set bewertung = {
               1: 'schlecht',
               2: 'verbesserungsbeduerftig',
