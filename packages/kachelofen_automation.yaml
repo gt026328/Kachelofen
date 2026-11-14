@@ -23,14 +23,11 @@ automation:
         entity_id: binary_sensor.kachelofen_zahler_ofen_brennt
         from: "on"
         to: "off"
-        for: "00:45:00"
+        for: "00:30:00"
     conditions:
       - condition: numeric_state
         entity_id: sensor.kachelofen_zahler_letzte_abbranddauer
         above: 0
-      - condition: state
-        entity_id: input_boolean.ventil_aktiv
-        state: "off"
     actions:
       - delay: "00:00:20"
 
@@ -77,11 +74,8 @@ automation:
         entity_id: binary_sensor.kachelofen_zahler_ofen_brennt
         from: "on"
         to: "off"
-        for: "00:45:00"
+        for: "00:30:00"
     conditions:
-      - condition: state
-        entity_id: input_boolean.ventil_aktiv
-        state: "off"
     action:
       - service: input_datetime.set_datetime
         target:
@@ -108,11 +102,8 @@ automation:
         entity_id: binary_sensor.kachelofen_zahler_ofen_brennt
         from: "on"
         to: "off"
-        for: "00:45:00"
+        for: "00:30:00"
     conditions:
-      - condition: state
-        entity_id: input_boolean.ventil_aktiv
-        state: "off"
     action:
       - service: input_number.set_value
         target:
@@ -193,53 +184,3 @@ automation:
             Pruefe Dichtungen oder Daemmung!
     mode: single
 
-  # =====================================================================
-  # OFEN-VENTIL: taktender Betrieb bis unter 95 °C
-  # Pro Zyklus: 10 min an -> aus -> 2 min abwarten -> Anstieg neu bewerten
-  # Ende: Temperatur < 95 °C ODER Temperaturanstieg <= 0 (Ofen kuehlt von allein)
-  # =====================================================================
-  - alias: "Kachelofen Ventil: taktend bis unter 95 Grad"
-    id: kachelofen_ventil_taktend_unter_95
-    triggers:
-      - trigger: numeric_state
-        entity_id: sensor.kachelofen_zahler_kachelofen_temperatur
-        above: 95
-      - trigger: time_pattern
-        minutes: "/5"
-    conditions:
-      - condition: numeric_state
-        entity_id: sensor.kachelofen_zahler_kachelofen_temperatur
-        above: 95
-      # erst starten, wenn der Ofen noch steigt; bei negativem Temperaturanstieg
-      # (Ofen kuehlt von allein) schaltet sich der Ventilator nicht mehr ein
-      - condition: numeric_state
-        entity_id: sensor.kachelofen_zahler_temperaturanstieg
-        above: 0
-    actions:
-      - action: input_boolean.turn_on
-        target:
-          entity_id: input_boolean.ventil_aktiv
-      - repeat:
-          while:
-            - condition: numeric_state
-              entity_id: sensor.kachelofen_zahler_kachelofen_temperatur
-              above: 95
-            - condition: numeric_state
-              entity_id: sensor.kachelofen_zahler_temperaturanstieg
-              above: 0
-          sequence:
-            - action: switch.turn_on
-              target:
-                entity_id: switch.ofen_vent
-            - delay: "00:10:00"
-            - action: switch.turn_off
-              target:
-                entity_id: switch.ofen_vent
-            - delay: "00:02:00"
-      - action: switch.turn_off
-        target:
-          entity_id: switch.ofen_vent
-      - action: input_boolean.turn_off
-        target:
-          entity_id: input_boolean.ventil_aktiv
-    mode: single

@@ -101,11 +101,6 @@ input_number:
     initial: 0.6  # ANGEPASST: Startwert auf 0.6 gesenkt (Empfehlungen waren zu hoch)
     icon: mdi:brain
 
-input_boolean:
-  ventil_aktiv:
-    name: "Ventilator aktiv (Abbrand-Ende pausiert)"
-    icon: mdi:fan
-
 input_select:
   kamin_holzart:
     name: "Holzart"
@@ -211,27 +206,17 @@ template:
         entity_id: binary_sensor.kachelofen_zahler_ofen_brennt
         from: "on"
         to: "off"
-        for: "00:45:00"
+        for: "00:30:00"
     sensor:
       - name: "Kachelofen Holzmenge letzter Abbrand"
         unique_id: kachelofen_holzmenge_letzte
         unit_of_measurement: "kg"
         state_class: measurement
-        state: >-
-          {% if is_state('input_boolean.ventil_aktiv', 'off') %}
-            {{ states('input_number.kamin_holzmenge') | float(0) }}
-          {% else %}
-            {{ this.state }}
-          {% endif %}
+        state: "{{ states('input_number.kamin_holzmenge') | float(0) }}"
 
       - name: "Kachelofen Holzart letzter Abbrand"
         unique_id: kachelofen_holzart_letzte
-        state: >-
-          {% if is_state('input_boolean.ventil_aktiv', 'off') %}
-            {{ states('input_select.kamin_holzart') }}
-          {% else %}
-            {{ this.state }}
-          {% endif %}
+        state: "{{ states('input_select.kamin_holzart') }}"
 
   # =====================================================================
   # 0b. WIRKUNGSGRAD-TREND: Korrelation Dauer <-> Maximaltemperatur (7d)
@@ -265,7 +250,7 @@ template:
         entity_id: binary_sensor.kachelofen_zahler_ofen_brennt
         from: "on"
         to: "off"
-        for: "00:45:00"
+        for: "00:30:00"
     sensor:
       - name: "Kachelofen Warmemenge kumulativ"
         unique_id: kachelofen_warmemenge_kumulativ_sensor
@@ -274,15 +259,11 @@ template:
         state_class: total_increasing
         icon: mdi:fire
         state: >-
-          {% if is_state('input_boolean.ventil_aktiv', 'off') %}
-            {% set alt = this.state | float(0) %}
-            {% set menge = states('input_number.kamin_holzmenge') | float(0) %}
-            {% set art = states('input_select.kamin_holzart') | default('Buche', true) %}
-            {% set hw = {'Buche': 4.0, 'Eiche': 4.0, 'Esche': 4.0, 'Birke': 4.1, 'Fichte': 4.3, 'Kiefer': 4.3}.get(art, 4.0) %}
-            {{ (alt + menge * hw) | round(2) }}
-          {% else %}
-            {{ this.state }}
-          {% endif %}
+          {% set alt = this.state | float(0) %}
+          {% set menge = states('input_number.kamin_holzmenge') | float(0) %}
+          {% set art = states('input_select.kamin_holzart') | default('Buche', true) %}
+          {% set hw = {'Buche': 4.0, 'Eiche': 4.0, 'Esche': 4.0, 'Birke': 4.1, 'Fichte': 4.3, 'Kiefer': 4.3}.get(art, 4.0) %}
+          {{ (alt + menge * hw) | round(2) }}
 
   # =====================================================================
   # 2. 07:00 UHR: NACHTWERTE EINFRIEREN
