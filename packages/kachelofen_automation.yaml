@@ -26,7 +26,7 @@ automation:
         for: "00:30:00"
     conditions:
       - condition: numeric_state
-        entity_id: sensor.kachelofen_zahler_letzte_abbranddauer
+        entity_id: sensor.kachelofen_abbranddauer_letzter_abbrand_min
         above: 0
     actions:
       - delay: "00:00:20"
@@ -41,7 +41,7 @@ automation:
             {% set hw = {'Buche': 4.0, 'Eiche': 4.0, 'Esche': 4.0, 'Birke': 4.1, 'Fichte': 4.3, 'Kiefer': 4.3}.get(art, 4.0) %}
             {{ (menge * hw) | round(1) }} kWh ({{ menge }} kg {{ art }})
             - Ø {{ states('sensor.kachelofen_mittlere_heizleistung') }} kW
-            - Dauer {{ states('sensor.kachelofen_zahler_letzte_abbranddauer') | int }} min
+            - Dauer {{ states('sensor.kachelofen_abbranddauer_letzter_abbrand_min') | round(1) }} h
             - Max {{ states('sensor.kachelofen_zahler_letzte_maximaltemperatur') | round(1) }} °C
 
       - action: smtp.send_message
@@ -56,8 +56,7 @@ automation:
             {% set hw = {'Buche': 4.0, 'Eiche': 4.0, 'Esche': 4.0, 'Birke': 4.1, 'Fichte': 4.3, 'Kiefer': 4.3}.get(art, 4.0) %}
             {{ (menge * hw) | round(1) }} kWh ({{ menge }} kg {{ art }})
             - Ø {{ states('sensor.kachelofen_mittlere_heizleistung') }} kW
-            - Dauer {{ (states('sensor.kachelofen_zahler_letzte_abbranddauer') | int(0)) // 60 }} h
-            {{ (states('sensor.kachelofen_zahler_letzte_abbranddauer') | int(0)) % 60 }} min
+            - Dauer {{ states('sensor.kachelofen_abbranddauer_letzter_abbrand_min') | round(1) }} h
             - Max {{ states('sensor.kachelofen_zahler_letzte_maximaltemperatur') | round(1) }} °C
 
       # Holzmenge zurücksetzen
