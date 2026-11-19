@@ -236,15 +236,15 @@ template:
         unit_of_measurement: "°C/h"
         icon: mdi:gauge
         state: >-
-          {% set dauer_min = states('sensor.abbranddauer_mittel_7d') | float(0) %}
+          {% set dauer_h = states('sensor.abbranddauer_mittel_7d') | float(0) %}
           {% set tmax = states('sensor.max_ofentemperatur_abbrand_mittel_7d') | float(0) %}
-          {% if dauer_min > 0 %}
-            {{ (tmax / (dauer_min / 60)) | round(2) }}
+          {% if dauer_h > 0 %}
+            {{ (tmax / dauer_h) | round(2) }}
           {% else %}
             {{ this.state | default(0) }}
           {% endif %}
         attributes:
-          dauer_mittel_h: "{{ (states('sensor.abbranddauer_mittel_7d') | float(0) / 60) | round(2) }} h"
+          dauer_mittel_h: "{{ states('sensor.abbranddauer_mittel_7d') | float(0) | round(2) }} h"
           maxtemp_mittel: "{{ states('sensor.max_ofentemperatur_abbrand_mittel_7d') | float(0) | round(1) }} °C"
           bedeutung: "°C Maximaltemperatur pro Abbrandstunde - höher = effizienterer Abbrand"
 
@@ -428,20 +428,20 @@ template:
         state_class: measurement
         state: "{{ now().hour }}"
 
-      - name: "Kachelofen Abbranddauer letzter Abbrand (min)"
+      - name: "Kachelofen Abbranddauer letzter Abbrand (h)"
         unique_id: kachelofen_abbranddauer_letzter_abbrand_min
-        unit_of_measurement: "min"
+        unit_of_measurement: "h"
         state_class: measurement
         icon: mdi:timer
         state: >-
           {% set start = state_attr('input_datetime.kachelofen_abbrand_start_zeit', 'timestamp') | float(0) %}
           {% if start > 0 and trigger.to_state is defined %}
-            {{ ((trigger.to_state.last_changed.timestamp() - start) / 60) | round(0) }}
+            {{ ((trigger.to_state.last_changed.timestamp() - start) / 3600) | round(2) }}
           {% else %}
-            {{ states('sensor.kachelofen_zahler_letzte_abbranddauer') | float(0) | round(0) }}
+            {{ (states('sensor.kachelofen_zahler_letzte_abbranddauer') | float(0) / 60) | round(2) }}
           {% endif %}
         attributes:
-          quelle: "HA-Zeitstempel (mitternachtsfest), Fallback ESP-Zaehler"
+          quelle: "HA-Zeitstempel (mitternachtsfest, in Stunden), Fallback ESP-Zaehler (min/60)"
 
   # =====================================================================
   # 5. ENERGIE PRO ABBRAND (Trigger korrigiert!)
@@ -671,12 +671,12 @@ template:
           {% set hw = {'Buche': 4.0, 'Eiche': 4.0, 'Esche': 4.0, 'Birke': 4.1, 'Fichte': 4.3, 'Kiefer': 4.3}.get(art, 4.0) %}
           {% set dauer = states('sensor.kachelofen_abbranddauer_letzter_abbrand_min') | float(0) %}
           {% if dauer > 0 %}
-            {{ ((menge * hw) / (dauer / 60)) | round(2) }}
+            {{ ((menge * hw) / dauer) | round(2) }}
           {% else %}
             0
           {% endif %}
         attributes:
-          abbranddauer_min: "{{ states('sensor.kachelofen_abbranddauer_letzter_abbrand_min') | float(0) | round(0) }}"
+          abbranddauer_h: "{{ states('sensor.kachelofen_abbranddauer_letzter_abbrand_min') | float(0) | round(2) }} h"
           holzmenge_kg: "{{ states('sensor.kachelofen_holzmenge_letzter_abbrand') | float(0) }}"
           holzart: "{{ states('sensor.kachelofen_holzart_letzter_abbrand') }}"
 
