@@ -173,7 +173,7 @@ sensor:
 
   - platform: statistics
     name: "Abbranddauer Mittel 7d"
-    entity_id: sensor.kachelofen_abbranddauer_letzter_abbrand_min
+    entity_id: sensor.kachelofen_abbranddauer_letzter_abbrand_h
     state_characteristic: mean
     max_age:
       days: 7
@@ -429,7 +429,7 @@ template:
         state: "{{ now().hour }}"
 
       - name: "Kachelofen Abbranddauer letzter Abbrand (h)"
-        unique_id: kachelofen_abbranddauer_letzter_abbrand_min
+        unique_id: kachelofen_abbranddauer_letzter_abbrand_h
         unit_of_measurement: "h"
         state_class: measurement
         icon: mdi:timer
@@ -669,14 +669,14 @@ template:
           {% set menge = states('sensor.kachelofen_holzmenge_letzter_abbrand') | float(0) %}
           {% set art = states('sensor.kachelofen_holzart_letzter_abbrand') | default('Buche', true) %}
           {% set hw = {'Buche': 4.0, 'Eiche': 4.0, 'Esche': 4.0, 'Birke': 4.1, 'Fichte': 4.3, 'Kiefer': 4.3}.get(art, 4.0) %}
-          {% set dauer = states('sensor.kachelofen_abbranddauer_letzter_abbrand_min') | float(0) %}
+          {% set dauer = states('sensor.kachelofen_abbranddauer_letzter_abbrand_h') | float(0) %}
           {% if dauer > 0 %}
             {{ ((menge * hw) / dauer) | round(2) }}
           {% else %}
             0
           {% endif %}
         attributes:
-          abbranddauer_h: "{{ states('sensor.kachelofen_abbranddauer_letzter_abbrand_min') | float(0) | round(2) }} h"
+          abbranddauer_h: "{{ states('sensor.kachelofen_abbranddauer_letzter_abbrand_h') | float(0) | round(2) }} h"
           holzmenge_kg: "{{ states('sensor.kachelofen_holzmenge_letzter_abbrand') | float(0) }}"
           holzart: "{{ states('sensor.kachelofen_holzart_letzter_abbrand') }}"
 
